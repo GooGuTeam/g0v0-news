@@ -1,0 +1,24 @@
+name: Validate content
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      # Runs first: a schema that stopped saying what it used to say would make the
+      # content check below pass for the wrong reason.
+      - name: Check JSON schemas
+        run: uv run python tools/validate.py --self-test
+
+      - name: Check content
+        run: uv run python tools/validate.py
