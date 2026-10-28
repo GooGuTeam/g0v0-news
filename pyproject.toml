@@ -1,0 +1,15 @@
+[project]
+name = "g0v0-news"
+version = "0.0.1"
+description = "Changelog and news content served by g0v0-server"
+requires-python = ">=3.12"
+dependencies = [
+  # `format` is only enforced when the extra is installed, and the schemas describe
+  # links with it: without this, `"url": "not a url"` passes every check.
+  "jsonschema[format]",
+]
+
+[tool.uv]
+# Nothing here is installed as a package: the environment exists so that
+# `uv run python tools/validate.py` can check the content, and so that CI can do the same.
+package = false
