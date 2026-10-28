@@ -1,0 +1,17 @@
+{
+  "$schema": "./streams.schema.json",
+  "streams": [
+    {
+      "name": "g0v0",
+      "id": 1,
+      "display_name": "g0v0",
+      "is_featured": true
+    },
+    {
+      "name": "robin",
+      "id": 2,
+      "display_name": "robin",
+      "is_featured": false
+    }
+  ]
+}

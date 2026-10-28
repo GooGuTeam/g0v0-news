@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/GooGuTeam/g0v0-news/main/news/post.schema.json",
+  "title": "News post front matter",
+  "description": "The front matter of a file at news/<year>/<slug>.md, between the two `---` lines. It is YAML, which many editors will not validate from a schema, so the rules here are enforced by the validation script.",
+  "type": "object",
+  "required": ["title", "author", "date"],
+  "additionalProperties": false,
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Required. The headline of the article, and what the listing shows above the preview."
+    },
+    "author": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Required. Who wrote it, as it should be credited. There is no fallback to a signature line at the end of the body."
+    },
+    "date": {
+      "$ref": "#/$defs/timestamp",
+      "description": "Required. Publication time. A post is listed from this moment on, and it orders the listing."
+    },
+    "updated": {
+      "$ref": "#/$defs/timestamp",
+      "description": "When the post was last edited. Defaults to `date`."
+    },
+    "id": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Post identifier, and what `GET /news/{news}?key=id` addresses. Derived from `date` to the second when absent, so it stays the same across deployments."
+    },
+    "series": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Reserved for grouping. Unchecked. Expect this to become an enumeration once the set is settled."
+    }
+  },
+  "$defs": {
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}(?:[T ][0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?(?: ?(?:Z|[+-][0-9]{2}:?[0-9]{2}))?)?$",
+      "description": "`2026-10-28 08:00:00 +0000`, `2026-10-28T08:00:00Z` or `2026-10-28`. Without an offset the time is taken as UTC."
+    }
+  }
+}

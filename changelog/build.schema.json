@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/GooGuTeam/g0v0-news/main/changelog/build.schema.json",
+  "title": "Changelog build",
+  "description": "One build per file, at changelog/<stream>/<version>.json.",
+  "type": "object",
+  "required": ["version", "entries"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Editor hint only, pointing at this file. The server ignores it; any other key it does not know is refused."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]{4}\\.[0-9]{3,4}\\.[0-9]+(?:-[0-9A-Za-z._-]+)?$",
+      "description": "Required. `YYYY.MDD.N`, where MDD is the release day with the month not padded (101 = January 1st) or both padded (1009 = October 9th), optionally followed by `-suffix`, the stream the build was made for, such as `2026.1009.0-g0v0`; a suffix has to match the directory the file sits in, which tools/validate.py checks because a schema cannot see the directory. The release date is read from here when `created_at` is absent."
+    },
+    "id": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Build identifier, and what `GET /changelog/{version}?key=id` addresses. Derived from the digits of `version` when absent; declare it to keep two builds apart when they spell the same digits."
+    },
+    "display_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Version the client shows. Defaults to `version` with the `-suffix` and every non-numeric character removed."
+    },
+    "created_at": {
+      "$ref": "#/$defs/timestamp",
+      "description": "Release time. Defaults to the date carried by `version`, at midnight UTC."
+    },
+    "users": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of users running this build, as counted at release. These counts are the only source of a stream's `user_count`, which the server sums over the stream's builds; they belong here, next to the build they describe. Defaults to 0."
+    },
+    "youtube_id": {
+      "type": "string",
+      "pattern": "^[0-9A-Za-z_-]{11}$",
+      "description": "Video shown above the changelog, as the bare YouTube identifier rather than a URL."
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Changes shipped by this build, in the order they should be listed. At least one: a build that lists nothing is a file left half-written.",
+      "items": { "$ref": "#/$defs/entry" }
+    }
+  },
+  "$defs": {
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}(?:[T ][0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?(?: ?(?:Z|[+-][0-9]{2}:?[0-9]{2}))?)?$",
+      "description": "`2026-10-09 12:00:00 +0000`, `2026-10-09T12:00:00Z` or `2026-10-09`. Without an offset the time is taken as UTC."
+    },
+    "link": {
+      "type": "string",
+      "minLength": 1,
+      "format": "uri-reference",
+      "description": "Served as written. An absolute URL is the useful value; nothing resolves a relative one."
+    },
+    "github_user": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "description": "Who authored the change. Every field is optional, but an empty object carries nothing and is refused.",
+      "properties": {
+        "display_name": { "type": "string", "minLength": 1 },
+        "github_url": { "$ref": "#/$defs/link" },
+        "github_username": { "type": "string", "minLength": 1 },
+        "id": { "type": "integer", "minimum": 1, "description": "osu! user identifier." },
+        "osu_username": { "type": "string", "minLength": 1 },
+        "user_id": { "type": "integer", "minimum": 1 },
+        "user_url": { "$ref": "#/$defs/link" }
+      }
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "anyOf": [{ "required": ["title"] }, { "required": ["message"] }],
+      "description": "One change. `type` says how the client marks it; `title` or `message` says what it was, and an entry with neither is refused.",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Derived from the build and the position when absent."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["add", "fix", "misc"],
+          "description": "Required. `add` for something new, `fix` for something repaired, `misc` for anything else. The client has an icon per type and nothing for the rest, so an unknown one is refused rather than filed under `misc`."
+        },
+        "category": {
+          "type": "string",
+          "minLength": 1,
+          "default": "Miscellaneous",
+          "description": "Group heading the entry is listed under."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "description": "One line. Required unless `message` is set."
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Markdown body, shown under the title. Returned as null unless the request asks for the markdown format."
+        },
+        "url": { "$ref": "#/$defs/link", "description": "Where the change can be read, when it is not a pull request." },
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "description": "`owner/name` of the repository the change landed in."
+        },
+        "github_url": { "$ref": "#/$defs/link", "description": "Pull request the change came from." },
+        "github_pull_request_id": { "type": "integer", "minimum": 1 },
+        "major": {
+          "type": "boolean",
+          "default": false,
+          "description": "Marks the change as notable in the client."
+        },
+        "created_at": {
+          "$ref": "#/$defs/timestamp",
+          "description": "Defaults to the build's `created_at`."
+        },
+        "github_user": { "$ref": "#/$defs/github_user" }
+      }
+    }
+  }
+}

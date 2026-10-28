@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/GooGuTeam/g0v0-news/main/changelog/streams.schema.json",
+  "title": "Changelog streams",
+  "description": "changelog/streams.json. The file may hold the list itself or the same list under a `streams` key.",
+  "oneOf": [
+    { "$ref": "#/$defs/list" },
+    {
+      "type": "object",
+      "required": ["streams"],
+      "additionalProperties": false,
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Editor hint only, pointing at this file. The server ignores it."
+        },
+        "streams": { "$ref": "#/$defs/list" }
+      }
+    }
+  ],
+  "$defs": {
+    "list": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Streams, in the order they should be listed, featured ones first. Leave the file out rather than emptying it.",
+      "items": { "$ref": "#/$defs/stream" }
+    },
+    "stream": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "Directory under changelog/, and the {stream} segment of the URL. Lowercase, digits and dashes only."
+        },
+        "id": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Defaults to the position in the list."
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Shown by the client. Defaults to `name`."
+        },
+        "is_featured": {
+          "type": "boolean",
+          "default": false,
+          "description": "Featured streams are listed before the others."
+        }
+      }
+    }
+  }
+}
