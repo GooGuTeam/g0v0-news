@@ -292,13 +292,48 @@ requests without squashing produces one entry per commit, which is a reason draf
 
 The API is reached with `GITHUB_TOKEN` or `GH_TOKEN` when either is set, and through
 `gh auth token` when it is not, so a machine where `gh` is logged in already has one.
-Without a token it still works, at sixty requests an hour.
+Without a token it still works, at sixty requests an hour. Which API that is comes from
+`GITHUB_API_URL`, defaulting to `https://api.github.com`: the name `gh` and GitHub Actions
+already use for it, and the hook the next section hangs on.
 
 The tools' own tests run against a temporary copy of this repository:
 
 ```bash
 uv run python tools/test_toolkit.py
 ```
+
+### Working without the network
+
+Both of the things the tools read -- a release, and a range of commits -- can be answered
+without GitHub, by `tools/fake_api.py`:
+
+```bash
+uv run python tools/fake_api.py                        # this checkout, and a demo release
+uv run python tools/fake_api.py --clone ../g0v0-server # a release per tag, and any range
+```
+
+Nothing else changes: the tools are pointed at it with `GITHUB_API_URL`, the same variable
+that names a different GitHub.
+
+```bash
+GITHUB_API_URL=http://127.0.0.1:8766 uv run python tools/newsctl.py draft \
+    --repository GooGuTeam/g0v0-server --release 2026.1030.0-g0v0
+```
+
+Without `--clone` or `--fixture` it serves a demo built into the file: one release and one
+range, with the awkward cases left in -- a breaking change written as a commit, a section
+about the release rather than about a change, a bullet with no prefix at all. That is enough
+to see what a draft looks like before trusting one on a real repository.
+
+A clone is read when a request arrives rather than walked at startup, so any range a person
+types works, and a tag nobody tagged answers 404 -- which is what it would answer on the
+real API, and the reason a draft that "worked locally" does not become a surprise later.
+`--fixture` takes a JSON object of path to document instead, so a response copied out of
+`gh api` can be pasted in as it is.
+
+There is no authentication, no pagination and no write. The four routes it serves are the
+ones the two readers use, and anything else is a 404 rather than an invention; the index at
+`http://127.0.0.1:8766/` lists what it knows and the variables that point a reader at it.
 
 ### Linting the tools
 
@@ -313,11 +348,13 @@ uv run pyright tools/               # types: `standard`, plus a complaint about 
 
 CI runs all three, and the tools' tests with them, in `.github/workflows/quality.yml`: it
 is a job of its own, separate from the content check, because a tool that stopped writing
-what it is supposed to write is a different failure from a file that does not validate. Two
-places carry a `# noqa` with the reason next to it: the `git` and `gh` calls, whose
-executables come from `PATH` on purpose, and the one `urllib` request, whose scheme is a
-constant. The tests are `unittest`, and `tools/test_toolkit.py` is exempted from the
-pytest-style rules rather than from the runner it uses.
+what it is supposed to write is a different failure from a file that does not validate.
+`# noqa` appears only where a rule is wrong for this repository, with the reason beside it:
+the `git` and `gh` calls, whose executables come from `PATH` on purpose; the one `urllib`
+request, whose target is the operator's `GITHUB_API_URL`; and the SHA-1 in `fake_api.py`,
+which is the format Git writes rather than a security choice. The tests are `unittest`, and
+`tools/test_toolkit.py` is exempted from the pytest-style rules rather than from the runner
+it uses.
 
 ## Editor support
 
@@ -342,19 +379,24 @@ key to a build therefore means adding it to the schema first.
 ## Reading it locally
 
 The server points at `GooGuTeam/g0v0-news@main` by default. To serve this checkout
-instead, start a static server and a fake contents API over it, then aim the two
-base URLs at that server:
+instead, start `tools/fake_api.py` and aim the two base URLs at it:
+
+```bash
+uv run python tools/fake_api.py   # this checkout on 127.0.0.1:8766, plus a demo release
+```
 
 ```ini
-CONTENT_RAW_BASE_URL=http://127.0.0.1:8000
-CONTENT_LISTING_BASE_URL=http://127.0.0.1:8000
+CONTENT_RAW_BASE_URL=http://127.0.0.1:8766
+CONTENT_LISTING_BASE_URL=http://127.0.0.1:8766
 CONTENT_REPOSITORY=local/g0v0-news
 ```
 
 The listing needs a GitHub-compatible `GET /repos/{repository}/contents/{path}`
 response — `type`, `name`, `path` and `sha` per entry — which a static server does not
-provide on its own. Without it both listings answer `503`, because the server refuses
-to mistake "could not list" for "nothing published".
+provide on its own and this one does, with `sha` the Git blob id the server caches by. A
+file's bytes are served at `/{repository}/{ref}/{path}`, the shape of a raw base URL. Without
+a listing both listings answer `503`, because the server refuses to mistake "could not list"
+for "nothing published".
 
 ## What is not here
 

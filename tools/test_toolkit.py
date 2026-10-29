@@ -6,20 +6,28 @@ The parsing is tested on strings, because that is where the judgement is: which 
 a change, which commit is noise, what a value looks like when it is written back. The
 publishing is tested on a temporary copy of the repository through the command line, so
 that what is tested is what a person runs, and so that a broken test cannot write into the
-working tree.
+working tree. What reads a remote repository is tested against `fake_api.py` on a loopback
+port, so that no test needs the network and a failure is always this repository's fault.
 """
 
+import base64
 from datetime import UTC, datetime
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 from typing import Any
 import unittest
+from unittest.mock import patch
+from urllib.error import HTTPError
+from urllib.request import urlopen
 
 import content
+import fake_api
 import formats
 import sources
 
@@ -44,6 +52,47 @@ def copy_repository(parent: Path) -> Path:
             if directory.is_dir():
                 shutil.rmtree(directory)
     return repo
+
+
+def clone_with(parent: Path, history: list[tuple[str, str | None]]) -> Path:
+    """A tiny repository: one empty commit per message, tagged where a tag is given.
+
+    Signing is switched off per command, because a machine that signs commits by default --
+    this one does -- would stop at the first empty commit waiting for a key.
+    """
+    path = parent / "clone"
+    path.mkdir()
+
+    def git(*arguments: str) -> None:
+        # Everything here is a constant in this file: the executables come from PATH on
+        # purpose, since the test is about what `git` reported.
+        subprocess.run(  # noqa: S603
+            [  # noqa: S607
+                "git",
+                "-C",
+                str(path),
+                "-c",
+                "user.name=Ann",
+                "-c",
+                "user.email=ann@example.com",
+                "-c",
+                "commit.gpgsign=false",
+                "-c",
+                "tag.gpgsign=false",
+                *arguments,
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+
+    git("init", "-q")
+    for message, tag in history:
+        git("commit", "-q", "--allow-empty", "-m", message)
+        if tag is not None:
+            git("tag", tag)
+    return path
 
 
 class ReleaseTests(unittest.TestCase):
@@ -222,6 +271,239 @@ class DraftTests(unittest.TestCase):
         content.append_to_draft(draft, entries=[entry], source={"kind": "release"})
         with self.assertRaises(content.ContentError):
             content.append_to_draft(draft, entries=[entry], source={"kind": "release"})
+
+
+class ApiTests(unittest.TestCase):
+    """Where the API is, and what one request to it carries."""
+
+    def test_the_base_is_github_unless_the_environment_says_otherwise(self):
+        with patch.dict(os.environ, {"GITHUB_API_URL": ""}):
+            self.assertEqual(sources.api_base(), sources.API)
+        with patch.dict(os.environ, {"GITHUB_API_URL": "http://127.0.0.1:8766/"}):
+            self.assertEqual(sources.api_base(), "http://127.0.0.1:8766", "the trailing slash is not part of a path")
+
+    def test_a_token_goes_to_github_and_nowhere_else(self):
+        with patch.object(sources, "token", return_value="secret"):
+            self.assertEqual(sources.request_headers(sources.API)["Authorization"], "Bearer secret")
+            self.assertNotIn(
+                "Authorization",
+                sources.request_headers("http://127.0.0.1:8766"),
+                "a stand-in has no use for a token, and a mistyped base should not carry one",
+            )
+
+    def test_a_blob_is_named_the_way_git_names_it(self):
+        self.assertEqual(fake_api.blob_sha(b"hello\n"), "ce013625030ba8dba906f756967f9e9ca394464a")
+
+
+class StandInTests(unittest.TestCase):
+    """The tools reading a repository that is not on GitHub, which is what `fake_api.py` is for."""
+
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.repo = copy_repository(Path(self.temporary.name))
+        self.base = self.start(fake_api.World(repository="local/g0v0-news", documents=fake_api.demo()))
+
+    def start(self, world: fake_api.World) -> str:
+        """Serve a world on a free port, and stop it when the test is over."""
+        server = fake_api.FakeAPI(("127.0.0.1", 0), root=self.repo, world=world)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        return server.base
+
+    def get(self, path: str, base: str | None = None) -> tuple[int, Any]:
+        try:
+            with urlopen(f"{base or self.base}{path}") as response:  # noqa: S310
+                return response.status, json.loads(response.read().decode("utf-8"))
+        except HTTPError as error:
+            return error.code, json.loads(error.read().decode("utf-8"))
+
+    def collect(self, *, base: str | None = None, **kwargs: Any) -> sources.Collection:
+        with patch.dict(os.environ, {"GITHUB_API_URL": base or self.base}):
+            return sources.collect(**kwargs)
+
+    def test_the_index_says_where_to_point_a_reader(self):
+        status, index = self.get("/")
+        self.assertEqual(status, 200)
+        self.assertEqual(index["environment"]["GITHUB_API_URL"], self.base)
+        self.assertEqual(index["environment"]["CONTENT_REPOSITORY"], "local/g0v0-news")
+        self.assertIn(
+            f"/repos/{fake_api.DEMO_REPOSITORY}/releases/tags/{fake_api.DEMO_TAG}",
+            index["documents"],
+        )
+
+    def test_a_directory_and_a_file_come_from_the_checkout(self):
+        status, listing = self.get("/repos/local/g0v0-news/contents/changelog")
+        self.assertEqual(status, 200)
+        self.assertEqual(
+            {entry["name"]: entry["type"] for entry in listing},
+            {"build.schema.json": "file", "streams.json": "file", "streams.schema.json": "file"},
+            "the copy starts with no build in it, and a listing shows what is there",
+        )
+
+        status, entry = self.get("/repos/local/g0v0-news/contents/changelog/streams.json")
+        self.assertEqual(status, 200)
+        data = base64.b64decode(entry["content"])
+        self.assertEqual(data, (self.repo / "changelog" / "streams.json").read_bytes())
+        self.assertEqual(entry["sha"], fake_api.blob_sha(data), "the id the server caches by")
+        self.assertEqual(entry["download_url"], f"{self.base}/local/g0v0-news/HEAD/changelog/streams.json")
+
+    def test_the_raw_route_answers_the_same_bytes(self):
+        with urlopen(f"{self.base}/local/g0v0-news/HEAD/README.md") as response:  # noqa: S310
+            self.assertEqual(response.read(), (self.repo / "README.md").read_bytes())
+
+    def test_a_path_outside_the_checkout_is_not_found(self):
+        self.assertEqual(self.get("/repos/local/g0v0-news/contents/../../pyproject.toml")[0], 404)
+        self.assertEqual(self.get("/repos/local/g0v0-news/contents/no-such-file.json")[0], 404)
+
+    def test_a_release_is_read_without_the_network(self):
+        collection = self.collect(repository=fake_api.DEMO_REPOSITORY, release=fake_api.DEMO_TAG)
+        self.assertEqual(collection.version, fake_api.DEMO_TAG, "the tag is a version, so it names the build")
+        self.assertEqual(collection.created_at, "2026-10-30 12:00:00 +0000")
+        self.assertEqual(
+            [(item.entry["type"], item.entry["title"]) for item in collection.candidates],
+            [
+                ("add", "Keep a room open when the host leaves"),
+                ("add", "Beatmap downloads resume after a dropped connection"),
+                ("add", "Drop the `/api/v1` prefix"),
+                ("fix", "The changelog no longer 500s on a build with no `users`"),
+            ],
+        )
+        self.assertEqual(collection.candidates[0].entry["category"], "Client")
+        self.assertTrue(collection.candidates[2].entry.get("major"), "`!` outranks the section heading")
+
+    def test_a_range_is_read_without_the_network(self):
+        plain = self.collect(repository=fake_api.DEMO_REPOSITORY, commit_range="2026.1009.0-g0v0...HEAD")
+        self.assertEqual(
+            [item.entry["title"] for item in plain.candidates],
+            [
+                "Keep a room open when the host leaves",
+                "Stop the changelog answering 500 for a build with no users",
+                "Drop the `/api/v1` prefix",
+            ],
+            "a merge commit and a chore are not in a draft unless `everything` asks for them",
+        )
+        everything = self.collect(
+            repository=fake_api.DEMO_REPOSITORY, commit_range="2026.1009.0-g0v0...HEAD", everything=True
+        )
+        self.assertIn("Bump jsonschema", [item.entry["title"] for item in everything.candidates])
+
+    def test_a_tag_nobody_published_fails_the_way_it_fails_on_github(self):
+        with self.assertRaises(content.ContentError) as caught:
+            self.collect(repository=fake_api.DEMO_REPOSITORY, release="2026.0001.0-g0v0")
+        self.assertIn("the API has nothing at", str(caught.exception))
+
+    def test_a_call_to_this_machine_escapes_the_proxy(self):
+        # A proxy in the environment would otherwise be asked to reach 127.0.0.1, which it
+        # cannot, so this is the test that the loopback opener is doing its job.
+        dead = {"http_proxy": "http://127.0.0.1:9", "HTTP_PROXY": "http://127.0.0.1:9", "no_proxy": "", "NO_PROXY": ""}
+        with patch.dict(os.environ, {**dead, "GITHUB_API_URL": self.base}):
+            self.assertEqual(sources.api("/")["repository"], "local/g0v0-news")
+
+    def test_a_fixture_is_answered_by_path(self):
+        fixture = Path(self.temporary.name) / "world.json"
+        fixture.write_text(
+            json.dumps(
+                {
+                    "/repos/o/r/compare/v1...v2": {
+                        "commits": [
+                            {
+                                "sha": "a" * 40,
+                                "commit": {"message": "fix: from the fixture", "author": {"name": "Ann"}},
+                                "author": {"login": "ann"},
+                            }
+                        ]
+                    }
+                }
+            ),
+            encoding="utf-8",
+            newline="\n",
+        )
+        base = self.start(fake_api.World(repository="o/r", documents=fake_api.load_fixture(fixture)))
+        collection = self.collect(base=base, repository="o/r", commit_range="v1...v2")
+        self.assertEqual([item.entry["title"] for item in collection.candidates], ["From the fixture"])
+        self.assertEqual(self.get("/", base=base)[1]["repository"], "o/r")
+
+    def test_a_clone_answers_any_range_on_demand(self):
+        clone = clone_with(
+            Path(self.temporary.name),
+            [
+                ("feat: the first thing", "2026.1009.0-g0v0"),
+                ("fix(api): the second thing", None),
+                ("chore(deps): bump x", "2026.1030.0-g0v0"),
+            ],
+        )
+        base = self.start(fake_api.World(repository="o/r", clone=clone))
+
+        self.assertEqual(set(self.get("/", base=base)[1]["releases"]), {"2026.1030.0-g0v0", "2026.1009.0-g0v0"})
+
+        release = self.collect(base=base, repository="o/r", release="2026.1030.0-g0v0")
+        ranged = self.collect(base=base, repository="o/r", commit_range="2026.1009.0-g0v0...HEAD")
+
+        self.assertEqual(release.version, "2026.1030.0-g0v0")
+        self.assertTrue(release.created_at, "a tag knows when it was made")
+        self.assertEqual(
+            [item.entry["title"] for item in release.candidates],
+            ["The first thing", "The second thing", "Bump x"],
+            "a body built from a tag lists every commit up to it, because a release is read as prose",
+        )
+        self.assertEqual(
+            [item.entry["title"] for item in ranged.candidates],
+            ["The second thing"],
+            "a range read from a clone drops the chore, exactly as one read from GitHub does",
+        )
+
+    def test_a_draft_is_written_from_the_stand_in(self):
+        environment = {**os.environ, "GITHUB_API_URL": self.base}
+        # `sys.executable` is the interpreter running this test and the script is the copy
+        # just made: what is tested is the command a person runs, pointed at a stand-in.
+        drafted = subprocess.run(  # noqa: S603
+            [
+                sys.executable,
+                str(self.repo / "tools" / "newsctl.py"),
+                "draft",
+                "--repository",
+                fake_api.DEMO_REPOSITORY,
+                "--release",
+                fake_api.DEMO_TAG,
+            ],
+            cwd=self.repo,
+            env=environment,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=False,
+        )
+        self.assertEqual(drafted.returncode, 0, drafted.stderr)
+        self.assertIn("4 candidate(s)", drafted.stdout)
+
+        draft = json.loads((self.repo / "drafts" / f"{fake_api.DEMO_TAG}.json").read_text(encoding="utf-8"))
+        self.assertEqual(draft["stream"], "g0v0")
+        self.assertEqual(draft["sources"][0]["kind"], "release")
+        self.assertEqual(len(draft["entries"]), 4)
+
+        published = subprocess.run(  # noqa: S603
+            [sys.executable, str(self.repo / "tools" / "newsctl.py"), "publish", fake_api.DEMO_TAG, "--yes"],
+            cwd=self.repo,
+            env=environment,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=False,
+        )
+        self.assertEqual(published.returncode, 0, published.stderr)
+        build = json.loads((self.repo / "changelog" / "g0v0" / f"{fake_api.DEMO_TAG}.json").read_text(encoding="utf-8"))
+        self.assertEqual(
+            [entry["title"] for entry in build["entries"]],
+            [
+                "Keep a room open when the host leaves",
+                "Beatmap downloads resume after a dropped connection",
+                "Drop the `/api/v1` prefix",
+                "The changelog no longer 500s on a build with no `users`",
+            ],
+        )
+        self.assertNotIn("provenance", build["entries"][0], "a build is what the client is served, nothing else")
 
 
 class RepositoryTests(unittest.TestCase):

@@ -24,12 +24,16 @@ import subprocess
 from typing import Any
 import urllib.error
 import urllib.parse
-from urllib.request import Request, urlopen
+from urllib.request import OpenerDirector, ProxyHandler, Request, build_opener
 
 from content import ContentError
 import formats
 
 API = "https://api.github.com"
+
+# Hosts that answer on this machine. A request to one of them is not sent to a proxy: it
+# would be the proxy's opinion of `127.0.0.1`, not this machine's.
+_LOOPBACK = frozenset({"127.0.0.1", "::1", "localhost"})
 
 # What a conventional-commit prefix means for an entry. A prefix that is not listed is
 # read as `misc`: an unusual word is still a change, and dropping it would be a guess.
@@ -487,24 +491,58 @@ def token() -> str | None:
     return result.stdout.strip() or None
 
 
-def api(path: str, *, params: dict[str, Any] | None = None) -> Any:
-    """One request to the GitHub API, with the failures a person can act on."""
-    url = f"{API}{path}"
-    if params:
-        url = f"{url}?{urllib.parse.urlencode(params)}"
+def api_base() -> str:
+    """Where the API is, so that a stand-in on this machine can answer instead of GitHub.
+
+    `GITHUB_API_URL` is the name GitHub Actions and the `gh` CLI already give this, and an
+    environment variable is the only way in: `serve` reaches the API from a server process
+    that nobody passes flags to. Nothing else changes -- a stand-in answers the same two
+    routes with the same documents, or the tool fails the way it would have.
+    """
+    return (os.environ.get("GITHUB_API_URL") or API).rstrip("/")
+
+
+def request_headers(base: str) -> dict[str, str]:
+    """The headers one request carries -- and the one it does not.
+
+    A token goes to GitHub and nowhere else. A stand-in has no use for it, and a mistyped
+    `GITHUB_API_URL` should not be a way to carry a credential off this machine.
+    """
     headers = {
         "Accept": "application/vnd.github+json",
         "User-Agent": "g0v0-news-newsctl",
         "X-GitHub-Api-Version": "2022-11-28",
     }
-    value = token()
+    value = token() if base == API else None
     if value:
         headers["Authorization"] = f"Bearer {value}"
+    return headers
 
-    # `API` is a constant https base and `path` is a route built by this module, so there is
-    # no scheme for a caller to redirect.
+
+def _opener(url: str) -> OpenerDirector:
+    """An opener for one request, which is how a call to this machine escapes the proxy.
+
+    `urlopen` reads `http_proxy` and sends everything through it, including a request to
+    `127.0.0.1` -- which a proxy outside this machine cannot answer. An explicit empty
+    `ProxyHandler` is the only way to say "not this one".
+    """
+    if (urllib.parse.urlsplit(url).hostname or "") in _LOOPBACK:
+        return build_opener(ProxyHandler({}))
+    return build_opener()
+
+
+def api(path: str, *, params: dict[str, Any] | None = None) -> Any:
+    """One request to the GitHub API, with the failures a person can act on."""
+    base = api_base()
+    url = f"{base}{path}"
+    if params:
+        url = f"{url}?{urllib.parse.urlencode(params)}"
+    # The scheme comes from `GITHUB_API_URL` when it is set, which is the operator's own
+    # configuration rather than anything a release body or a commit message can reach.
+    request = Request(url, headers=request_headers(base))  # noqa: S310
+
     try:
-        with urlopen(Request(url, headers=headers), timeout=30) as response:  # noqa: S310
+        with _opener(url).open(request, timeout=30) as response:
             return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as error:
         if error.code == 404:
@@ -517,8 +555,8 @@ def api(path: str, *, params: dict[str, Any] | None = None) -> Any:
         raise ContentError(f"the API answered {error.code} at {path}") from error
     except urllib.error.URLError as error:
         raise ContentError(
-            f"could not reach the API ({error.reason}); a commit range can be read from a local clone instead, "
-            "with --repo-path"
+            f"could not reach the API at {base} ({error.reason}); a commit range can be read from a local clone "
+            "instead, with --repo-path"
         ) from error
 
 
@@ -594,6 +632,37 @@ def local_commits(repo_path: Path, revision_range: str, *, first_parent: bool = 
             Commit(sha=fields[0], author=fields[1], date=fields[2] or None, subject=fields[3], body=fields[4].strip())
         )
     return commits
+
+
+@dataclass(frozen=True)
+class Tag:
+    """One tag in a clone: the name somebody types, the commit it is on, and when."""
+
+    name: str
+    sha: str
+    date: str | None = None
+
+
+def tags(repo_path: Path) -> list[Tag]:
+    """Every tag in a clone, newest first, so the releases a repository has can be walked.
+
+    A tag name cannot contain a space -- Git's own rule -- which is what makes a space a
+    safe separator here.
+    """
+    output = _git(
+        repo_path,
+        "for-each-ref",
+        "--sort=-creatordate",
+        "--format=%(refname:short) %(objectname) %(creatordate:iso-strict)",
+        "refs/tags",
+    )
+    found: list[Tag] = []
+    for line in output.splitlines():
+        name, _, rest = line.partition(" ")
+        sha, _, date = rest.partition(" ")
+        if name and sha:
+            found.append(Tag(name=name, sha=sha, date=date or None))
+    return found
 
 
 def latest_tag(repo_path: Path) -> str | None:

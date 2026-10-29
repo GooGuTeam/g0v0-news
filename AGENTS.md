@@ -37,6 +37,7 @@ step and no database, so a file that reaches `main` is published.
 | `news/<year>/<YYYYMMDD>-<slug>.md` | one published post; the file name is its slug |
 | `drafts/<version>.json` | a build under review, one `{status, entry, provenance}` per entry |
 | `tools/` | scripts, imported by bare name; deliberately not a package |
+| `tools/fake_api.py` | a stand-in for the GitHub API: this checkout's contents, and releases or ranges from a clone |
 | `tools/static/index.html` | the console page: one file, no build step |
 
 ## Checks
@@ -76,5 +77,7 @@ Import neighbouring modules by bare name (`import content`). Give a public funct
 docstring that says what it guarantees, not what it does -- the existing ones carry the
 reason a rule exists, and that is what keeps a later change from undoing it. Add a test to
 `tools/test_toolkit.py`, which runs against a temporary copy of this repository so it
-cannot touch the checkout. Prose documentation belongs in `README.md`, not in a second
-file.
+cannot touch the checkout. A test never needs the network: `tools/fake_api.py` answers the
+GitHub routes on a loopback port, so the tools can be tested reading a release, a range of
+commits or this checkout without a token. Prose documentation belongs in `README.md`, not in
+a second file.

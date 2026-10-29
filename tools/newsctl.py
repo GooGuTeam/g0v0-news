@@ -388,7 +388,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--blank", action="store_true", help="start an empty draft instead of reading a source, then fill it in by hand"
     )
     make_draft.add_argument("--repository", "-r", help="owner/name of the repository the changes landed in")
-    make_draft.add_argument("--release", help="tag of a published release to read")
+    make_draft.add_argument("--release", help="tag of a published release to read; GITHUB_API_URL points it elsewhere")
     make_draft.add_argument("--range", help="commits to read, as `base..head`")
     make_draft.add_argument("--repo-path", help="a clone to read the range from, instead of the API")
     make_draft.add_argument("--first-parent", action="store_true", help="walk only the mainline of the clone")
