@@ -569,11 +569,21 @@ class PublishTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.repo = copy_repository(Path(self.temporary.name))
         self.addCleanup(self.temporary.cleanup)
-        # Every stream `streams.json` declares gets a build: once anything is built, a
-        # declared stream with no directory is an error, and most of these tests build into
-        # one of them and then run the checker over the result.
+        # Once anything is built, a declared stream with no directory is an error, and most
+        # of these tests build into one stream and then run the checker over the result. So
+        # the copy declares exactly the streams it builds, rather than whatever the checkout
+        # this was copied from happens to declare today.
+        self.write_streams("g0v0", "robin")
         self.write_build("2026.1008.0-g0v0", "g0v0")
         self.write_build("2026.1015.0-robin", "robin")
+
+    def write_streams(self, *names: str) -> None:
+        path = self.repo / "changelog" / "streams.json"
+        path.write_text(
+            json.dumps({"streams": [{"name": name, "id": index} for index, name in enumerate(names, start=1)]}),
+            encoding="utf-8",
+            newline="\n",
+        )
 
     def write_build(self, version: str, stream: str) -> None:
         path = self.repo / "changelog" / stream / f"{version}.json"
