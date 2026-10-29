@@ -2,3 +2,5 @@
 .idea
 .venv
 __pycache__/
+# Local agent notes: about this checkout, not about the content in it.
+.workbuddy/
