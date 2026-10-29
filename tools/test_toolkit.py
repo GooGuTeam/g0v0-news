@@ -221,6 +221,55 @@ class RepositoryTests(unittest.TestCase):
             content.write_build({"version": "1.2.3", "entries": [{"type": "add", "title": "x"}]}, "g0v0")
 
 
+class EmptyTreeTests(unittest.TestCase):
+    """A repository nobody has published to yet, which is the state this one is in."""
+
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.repo = Path(self.temporary.name) / "repo"
+        shutil.copytree(REPO, self.repo, ignore=IGNORED)
+        self.addCleanup(self.temporary.cleanup)
+        # Whatever content the working copy happens to hold, the check is run against a
+        # tree with none: each stream directory and each year of posts goes.
+        for tree in ("changelog", "news"):
+            for directory in (self.repo / tree).iterdir():
+                if directory.is_dir():
+                    shutil.rmtree(directory)
+
+    def check(self) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(  # noqa: S603
+            [sys.executable, str(self.repo / "tools" / "validate.py")],
+            cwd=self.repo,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=False,
+        )
+
+    def test_an_empty_tree_passes_with_warnings(self):
+        checked = self.check()
+        self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+        self.assertIn("0 error(s)", checked.stdout)
+        self.assertIn("declares `g0v0`, but changelog/g0v0/ does not exist yet", checked.stdout)
+        self.assertIn("holds no post", checked.stdout)
+
+    def test_a_declared_stream_is_required_once_anything_is_built(self):
+        # One build in one stream is enough for the declaration to be held to account: at
+        # that point a missing directory is a mistake rather than an empty start.
+        build = self.repo / "changelog" / "robin" / "2026.1015.0-robin.json"
+        build.parent.mkdir()
+        build.write_text(
+            json.dumps({"version": "2026.1015.0-robin", "entries": [{"type": "add", "title": "x"}]}),
+            encoding="utf-8",
+            newline="\n",
+        )
+
+        checked = self.check()
+        self.assertEqual(checked.returncode, 1, checked.stdout + checked.stderr)
+        self.assertIn("declares `g0v0`, but changelog/g0v0/ does not exist", checked.stdout)
+        self.assertNotIn("does not exist yet", checked.stdout)
+
+
 class PublishTests(unittest.TestCase):
     """The whole way from a draft to a build, through the command line."""
 

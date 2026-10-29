@@ -11,6 +11,10 @@ Exits with 1 when anything is wrong, so a CI job can run it as is. The rules bel
 a schema cannot express -- identifiers being unique, a version matching its file name, a
 stream having a directory -- are the reason this is a script rather than a linter.
 
+A repository nobody has published to yet passes, with warnings. The rules about streams
+describe what is built, and an empty tree has no build for them to disagree with: a red
+build there would be a rule nobody can satisfy until after their first release.
+
 The parsers are not here: `formats.py` reads the same front matter and the same
 timestamps for the tools that write them, and one reader for both directions is what
 makes "it passes" mean the server will accept it.
@@ -110,8 +114,18 @@ def check_changelog(report: Report) -> None:
         for path in builds:
             check_build(path, report, build_schema, identifiers, name)
 
+    # A stream declared before its first build is where every stream starts. The
+    # declaration is held against the directories only once there is a build to hold it
+    # against: before that, `changelog/g0v0/` missing means "nothing shipped yet", which
+    # is not something a contributor can fix, and a typo in a name has nothing to be a
+    # typo of.
+    empty = not any(directory.glob("*.json") for directory in directories.values())
     for name in sorted(set(declared) - set(directories)):
-        report.error("changelog/streams.json", f"declares `{name}`, but changelog/{name}/ does not exist")
+        reason = f"declares `{name}`, but changelog/{name}/ does not exist"
+        if empty:
+            report.warning("changelog/streams.json", f"{reason} yet")
+        else:
+            report.error("changelog/streams.json", reason)
 
 
 def check_build(
@@ -173,7 +187,10 @@ def check_news(report: Report) -> None:
     schema = read_schema(NEWS / "post.schema.json")
     posts = sorted(NEWS.rglob("*.md"))
     if not posts:
-        report.error("news/", "holds no post")
+        # An empty news tree is the state this repository starts in, and nothing here can
+        # tell it apart from a tree somebody emptied by mistake -- git shows that as a diff
+        # full of deletions, which is where it is worth noticing.
+        report.warning("news/", "holds no post, so there is nothing to check yet")
 
     for directory in sorted(path for path in NEWS.iterdir() if path.is_dir()):
         if re.fullmatch(r"[0-9]{4}", directory.name) is None:
