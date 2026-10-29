@@ -183,6 +183,11 @@ Beside the schema rules, `validate.py` checks what a schema cannot express:
 Errors exit with `1`; warnings do not fail the run. Both commands run on every push and
 pull request, in `.github/workflows/validate.yml`.
 
+A tree with nothing in it yet passes, with a warning per stream that has no build and one
+for a `news/` with no post. Those rules describe what is built, and an empty tree has no
+build to hold them against; the first one makes them binding again, and a declared stream
+whose directory is missing is an error from then on.
+
 `uv.lock` is committed, so the version `jsonschema` resolves to is the one the schema
 checks were written against. It records whichever package index resolved it; if your
 index differs from the one in the lock, `uv lock --upgrade` resolves it again.
@@ -306,7 +311,9 @@ uv run ruff format --check tools/   # formatting is mechanical, so it is not arg
 uv run pyright tools/               # types: `standard`, plus a complaint about a bare `dict`
 ```
 
-CI runs all three, so a lint failure is a red build rather than a note in review. Two
+CI runs all three, and the tools' tests with them, in `.github/workflows/quality.yml`: it
+is a job of its own, separate from the content check, because a tool that stopped writing
+what it is supposed to write is a different failure from a file that does not validate. Two
 places carry a `# noqa` with the reason next to it: the `git` and `gh` calls, whose
 executables come from `PATH` on purpose, and the one `urllib` request, whose scheme is a
 constant. The tests are `unittest`, and `tools/test_toolkit.py` is exempted from the

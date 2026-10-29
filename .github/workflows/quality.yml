@@ -1,0 +1,34 @@
+name: Code quality
+
+# The tools write the content that `validate.yml` checks, so a tool that started writing
+# something else would turn a red build into a green one. That is a different failure from
+# a file that does not validate, and a job of its own is where it stays legible.
+on:
+  push:
+  pull_request:
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      # Cheapest failure first. `ruff format --check` is here because the formatting is
+      # mechanical: a diff that is only whitespace should not need an argument in review.
+      - name: Lint
+        run: |
+          uv run ruff check tools/
+          uv run ruff format --check tools/
+
+      - name: Type-check
+        run: uv run pyright tools/
+
+      # The tools are tested against a copy of the repository, so this step cannot write
+      # into the checkout it was given.
+      - name: Test the maintenance tools
+        run: uv run python tools/test_toolkit.py

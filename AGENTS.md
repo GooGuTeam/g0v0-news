@@ -49,8 +49,10 @@ uv run ruff check tools/ && uv run ruff format --check tools/
 uv run pyright tools/
 ```
 
-CI runs all five and a failure is a red build, not a note in review. Run them before saying
-the work is done.
+CI runs all five, in two workflows: `.github/workflows/validate.yml` for the content,
+`.github/workflows/quality.yml` for the Python. A failure is a red build, not a note in
+review. Run them before saying the work is done. A tree with no content in it passes the
+content check with warnings -- that is the state this repository is in, not a broken check.
 
 ## Traps
 
