@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>g0v0 news desk</title>
+<style>
+  :root {
+    --bg: #faf9f6;
+    --panel: #ffffff;
+    --ink: #1b1b19;
+    --muted: #6f6f68;
+    --line: #e4e2db;
+    --accent: #2f6f4f;
+    --accent-ink: #ffffff;
+    --danger: #a4342c;
+    --warn: #8a6d1f;
+    --code: #f1f0ea;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14151a;
+      --panel: #1c1d24;
+      --ink: #e9e8e3;
+      --muted: #9a9a93;
+      --line: #2c2d36;
+      --accent: #7cbf99;
+      --accent-ink: #10210f;
+      --danger: #e69189;
+      --warn: #d9b661;
+      --code: #23242c;
+      --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+  }
+  code, input, textarea, select, .mono { font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; }
+
+  header.top {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+    position: sticky; top: 0; z-index: 5;
+  }
+  header.top h1 { font-size: 15px; margin: 0; letter-spacing: .01em; }
+  header.top .repo { color: var(--muted); font-size: 12px; }
+  .spacer { flex: 1; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 2px 10px; border-radius: 999px; font-size: 12px;
+    border: 1px solid var(--line); cursor: pointer; background: transparent; color: var(--ink);
+  }
+  .pill.ok { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+  .pill.bad { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--line)); }
+
+  .layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: calc(100vh - 49px); }
+  aside { border-right: 1px solid var(--line); padding: 16px 12px 40px; overflow-y: auto; }
+  aside h2 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); margin: 18px 6px 6px; font-weight: 600;
+  }
+  aside h2:first-child { margin-top: 0; }
+  aside a, aside button.link {
+    display: block; width: 100%; text-align: left;
+    padding: 4px 8px; border-radius: 6px; color: var(--ink);
+    text-decoration: none; font-size: 13px; border: 0; background: transparent; cursor: pointer;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  aside a:hover, aside button.link:hover { background: var(--code); }
+  aside a.active { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+  aside .meta { color: var(--muted); font-size: 11px; }
+
+  main { padding: 22px 28px 80px; max-width: 1080px; }
+  h2.section { font-size: 13px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin: 26px 0 8px; }
+  h3.title { font-size: 20px; margin: 0 0 2px; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); }
+  .card + .card { margin-top: 12px; }
+  .card .body { padding: 14px 16px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-weight: 600; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+  th, td { padding: 6px 10px; border-bottom: 1px solid var(--line); }
+  tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.clickable { cursor: pointer; }
+  tr.clickable:hover td { background: var(--code); }
+
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  input[type=text], input[type=number], select, textarea {
+    background: var(--bg); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 6px 8px; font-size: 13px; width: 100%;
+  }
+  input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 0; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .row > * { flex: 1 1 160px; }
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+  .split > .card + .card { margin-top: 0; }
+  @media (max-width: 900px) { .split { grid-template-columns: minmax(0, 1fr); } }
+
+  button {
+    font: inherit; font-size: 13px; padding: 6px 14px; border-radius: 7px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+  }
+  button:hover { border-color: color-mix(in srgb, var(--ink) 25%, var(--line)); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  button.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--line)); }
+  button.small { padding: 2px 8px; font-size: 12px; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .actions { display: flex; gap: 8px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+
+  .entries { display: flex; flex-direction: column; gap: 10px; }
+  .entry { border: 1px solid var(--line); border-radius: 9px; padding: 10px 12px; background: var(--panel); }
+  .entry.dropped { opacity: .5; }
+  .entry-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+  .entry-head .grow { flex: 1 1 180px; }
+  .entry-head select { width: auto; min-width: 84px; flex: 0 0 auto; }
+  .check { display: inline-flex; gap: 4px; align-items: center; font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .entry .title-input { font-size: 14px; }
+  .entry .message { margin-top: 6px; min-height: 52px; resize: vertical; }
+  .entry .url { margin-top: 6px; font-size: 12px; }
+  .provenance { margin-top: 6px; font-size: 11px; color: var(--muted); word-break: break-all; }
+
+  .checks { font-size: 12px; }
+  .checks ul { margin: 6px 0 0; padding-left: 18px; }
+  .checks li { margin: 2px 0; word-break: break-word; }
+  .checks li.error { color: var(--danger); }
+  .checks li.warning { color: var(--warn); }
+
+  .empty { color: var(--muted); font-size: 13px; padding: 10px 0; }
+
+  footer.toast {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+    padding: 8px 16px; border-radius: 999px; font-size: 13px;
+    background: var(--ink); color: var(--bg); opacity: 0; pointer-events: none;
+    transition: opacity .18s ease; max-width: 80vw; z-index: 20;
+  }
+  footer.toast.show { opacity: .95; }
+  footer.toast.error { background: var(--danger); color: #fff; }
+
+  .hint { color: var(--muted); font-size: 12px; }
+  .tag { font-size: 11px; border: 1px solid var(--line); border-radius: 999px; padding: 0 7px; color: var(--muted); }
+  details.form summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+  details.form[open] summary { margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>g0v0 news desk</h1>
+  <span class="repo" id="repo"></span>
+  <span class="spacer"></span>
+  <button class="pill" id="checks-pill" title="run the check">checks</button>
+  <button class="pill" id="home-pill">overview</button>
+</header>
+<div class="layout">
+  <aside id="sidebar"></aside>
+  <main id="main"></main>
+</div>
+<footer class="toast" id="toast"></footer>
+
+<script>
+"use strict";
+
+// -- tiny DOM helpers ---------------------------------------------------------------
+
+function h(tag, attributes, ...children) {
+  const node = document.createElement(tag);
+  for (const [key, value] of Object.entries(attributes || {})) {
+    if (key === "on") {
+      for (const [event, handler] of Object.entries(value)) node.addEventListener(event, handler);
+    } else if (key === "value" || key === "checked" || key === "disabled") {
+      node[key] = value;
+    } else if (value === true) {
+      node.setAttribute(key, "");
+    } else if (value !== false && value != null) {
+      node.setAttribute(key, value);
+    }
+  }
+  for (const child of children.flat()) {
+    if (child == null || child === false) continue;
+    node.append(child instanceof Node ? child : document.createTextNode(String(child)));
+  }
+  return node;
+}
+
+const state = { overview: null, draft: null, build: null, post: null, dirty: false };
+
+let toastTimer = null;
+function toast(message, kind) {
+  const node = document.getElementById("toast");
+  node.textContent = message;
+  node.className = "toast show" + (kind === "error" ? " error" : "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { node.className = "toast"; }, kind === "error" ? 7000 : 3000);
+}
+
+async function api(path, options) {
+  const response = await fetch(path, {
+    headers: { "Content-Type": "application/json" },
+    ...(options || {}),
+  });
+  const text = await response.text();
+  let payload = {};
+  if (text) {
+    try { payload = JSON.parse(text); } catch (error) { throw new Error(text.slice(0, 300)); }
+  }
+  if (!response.ok) throw new Error(payload.error || response.statusText);
+  return payload;
+}
+
+function go(route) {
+  if (state.dirty && !confirm("That edit is not saved. Leave anyway?")) return;
+  state.dirty = false;
+  location.hash = route;
+}
+
+// -- routing ------------------------------------------------------------------------
+
+window.addEventListener("hashchange", () => { load().catch(report); });
+document.getElementById("home-pill").onclick = () => go("#/");
+document.getElementById("checks-pill").onclick = async () => {
+  try {
+    const result = await api("/api/check");
+    toast(`${result.errors.length} error(s), ${result.warnings.length} warning(s)`,
+          result.errors.length ? "error" : "");
+    await refresh();
+  } catch (error) { report(error); }
+};
+
+function report(error) {
+  toast(error.message || String(error), "error");
+}
+
+function parts() {
+  return location.hash.replace(/^#\/?/, "").split("/").filter(Boolean);
+}
+
+async function load() {
+  await refresh();
+  const [kind, ...rest] = parts();
+  const path = rest.map(decodeURIComponent).join("/");
+  state.draft = state.build = state.post = null;
+  state.dirty = false;
+  if (kind === "draft" && path) state.draft = await api("/api/draft?path=" + encodeURIComponent(path));
+  else if (kind === "build" && path) state.build = await api("/api/build?path=" + encodeURIComponent(path));
+  else if (kind === "post" && path) state.post = await api("/api/post?path=" + encodeURIComponent(path));
+  render();
+}
+
+async function refresh() {
+  state.overview = await api("/api/overview");
+  document.getElementById("repo").textContent = state.overview.repository;
+  paintChecksPill();
+}
+
+function paintChecksPill() {
+  const pill = document.getElementById("checks-pill");
+  const { errors, warnings } = state.overview.checks;
+  pill.textContent = errors.length ? `${errors.length} error(s)` : warnings.length ? `${warnings.length} warning(s)` : "checks pass";
+  pill.className = "pill " + (errors.length ? "bad" : "ok");
+}
+
+// -- sidebar ------------------------------------------------------------------------
+
+function renderSidebar() {
+  const overview = state.overview;
+  const current = location.hash.replace(/^#/, "");
+  const sidebar = document.getElementById("sidebar");
+  const blocks = [];
+
+  blocks.push(h("h2", {}, "drafts"));
+  if (!overview.drafts.length) blocks.push(h("div", { class: "meta", style: "padding:0 8px" }, "none waiting"));
+  for (const draft of overview.drafts) {
+    const route = "#/draft/" + encodeURIComponent(draft.path);
+    blocks.push(h("a", { href: route, class: current === route.slice(1) ? "active" : "" },
+      draft.version, h("div", { class: "meta" }, `${draft.kept} kept · ${draft.dropped} dropped`)));
+  }
+
+  blocks.push(h("h2", {}, "streams"));
+  for (const stream of overview.streams) {
+    blocks.push(h("div", { class: "meta", style: "padding:2px 8px" }, stream.name));
+    for (const build of stream.builds) {
+      const route = "#/build/" + encodeURIComponent(build.path);
+      blocks.push(h("a", { href: route, class: current === route.slice(1) ? "active" : "" },
+        build.display, h("span", { class: "meta" }, " · " + (build.released || "undated"))));
+    }
+    if (!stream.builds.length) blocks.push(h("div", { class: "meta", style: "padding:0 8px" }, "no build"));
+  }
+
+  blocks.push(h("h2", {}, "posts"));
+  for (const post of overview.posts) {
+    const route = "#/post/" + encodeURIComponent(post.path);
+    blocks.push(h("a", { href: route, class: current === route.slice(1) ? "active" : "", title: post.title },
+      post.title || post.slug));
+  }
+
+  sidebar.replaceChildren(...blocks);
+}
+
+// -- views --------------------------------------------------------------------------
+
+function render() {
+  renderSidebar();
+  const main = document.getElementById("main");
+  if (state.draft) main.replaceChildren(draftView());
+  else if (state.build) main.replaceChildren(buildView());
+  else if (state.post) main.replaceChildren(postView());
+  else main.replaceChildren(overviewView());
+}
+
+function overviewView() {
+  const overview = state.overview;
+  const nodes = [];
+
+  nodes.push(h("h3", { class: "title" }, "Overview"));
+  nodes.push(h("p", { class: "hint" },
+    "Everything below is a file in this checkout. A draft becomes a build only when it is published."));
+
+  nodes.push(h("h2", { class: "section" }, "checks"));
+  const { errors, warnings } = overview.checks;
+  const checkCard = h("div", { class: "card" }, h("div", { class: "body checks" },
+    errors.length === 0 && warnings.length === 0
+      ? h("div", {}, "The whole tree passes, which is what CI will say too.")
+      : h("ul", {}, ...errors.map((e) => h("li", { class: "error" }, e)), ...warnings.map((w) => h("li", { class: "warning" }, w)))));
+  nodes.push(checkCard);
+
+  nodes.push(h("h2", { class: "section" }, "builds"));
+  for (const stream of overview.streams) {
+    const rows = stream.builds.map((build) => h("tr", {
+      class: "clickable",
+      on: { click: () => go("#/build/" + encodeURIComponent(build.path)) },
+    },
+      h("td", { class: "mono" }, build.version),
+      h("td", {}, build.released || "—"),
+      h("td", { class: "num" }, String(build.entries)),
+      h("td", { class: "num" }, String(build.major)),
+      h("td", { class: "num" }, String(build.users ?? 0)),
+    ));
+    nodes.push(h("div", { class: "card" }, h("div", { class: "body" },
+      h("div", { style: "display:flex;gap:8px;align-items:center;margin-bottom:6px" },
+        h("strong", {}, stream.name),
+        stream.is_featured ? h("span", { class: "tag" }, "featured") : null,
+        stream.undeclared ? h("span", { class: "tag" }, "not in streams.json") : null),
+      stream.builds.length
+        ? h("table", {}, h("thead", {}, h("tr", {},
+            h("th", {}, "version"), h("th", {}, "released"), h("th", { class: "num" }, "entries"),
+            h("th", { class: "num" }, "major"), h("th", { class: "num" }, "users"))), h("tbody", {}, ...rows))
+        : h("div", { class: "empty" }, "This stream has no build, so it does not appear in the changelog at all."))));
+  }
+
+  nodes.push(h("h2", { class: "section" }, "drafts"));
+  if (!overview.drafts.length) {
+    nodes.push(h("div", { class: "empty" }, "No draft is waiting. Read a release below to make one."));
+  } else {
+    nodes.push(h("div", { class: "card" }, h("div", { class: "body" }, h("table", {},
+      h("thead", {}, h("tr", {}, h("th", {}, "version"), h("th", {}, "stream"), h("th", { class: "num" }, "kept"),
+        h("th", { class: "num" }, "dropped"), h("th", {}, "source"))),
+      h("tbody", {}, ...overview.drafts.map((draft) => h("tr", {
+        class: "clickable",
+        on: { click: () => go("#/draft/" + encodeURIComponent(draft.path)) },
+      },
+        h("td", { class: "mono" }, draft.version),
+        h("td", {}, draft.stream),
+        h("td", { class: "num" }, String(draft.kept)),
+        h("td", { class: "num" }, String(draft.dropped)),
+        h("td", { class: "hint" }, (draft.sources || []).join(", ")),
+      )))))));
+  }
+
+  nodes.push(h("h2", { class: "section" }, "draft a build from a source"));
+  nodes.push(newDraftForm());
+
+  nodes.push(h("h2", { class: "section" }, "start from nothing"));
+  nodes.push(h("p", { class: "hint" },
+    "A release and a range of commits are two ways in, and neither covers what nobody wrote down. " +
+    "These two skip the source: what you type becomes the same draft, or the same post, as anything extracted."));
+  nodes.push(h("div", { class: "split" }, blankBuildForm(), newPostForm()));
+
+  nodes.push(h("h2", { class: "section" }, "posts"));
+  nodes.push(postList());
+
+  return h("div", {}, ...nodes);
+}
+
+// The two cards under "start from nothing": a build with no source, and a post.
+function blankBuildForm() {
+  const field = (label, input) => h("div", { class: "field" }, h("label", {}, label), input);
+  const version = h("input", { type: "text", placeholder: "2026.1030.0-g0v0" });
+  const stream = h("input", { type: "text", placeholder: "g0v0 (defaults to the suffix)" });
+  const users = h("input", { type: "number", placeholder: "0" });
+  const button = h("button", { class: "primary" }, "Start an empty draft");
+
+  button.addEventListener("click", async () => {
+    if (!version.value.trim()) {
+      report(new Error("a draft is named after its version, so give one, for example 2026.1030.0-g0v0"));
+      return;
+    }
+    button.disabled = true;
+    try {
+      const result = await api("/api/draft", { method: "POST", body: JSON.stringify({
+        version: version.value.trim(),
+        stream: stream.value.trim(),
+        users: users.value.trim(),
+      }) });
+      toast(`empty draft for ${result.version}`);
+      await refresh();
+      go("#/draft/" + encodeURIComponent(result.path));
+    } catch (error) { report(error); }
+    finally { button.disabled = false; }
+  });
+
+  return h("div", { class: "card" }, h("div", { class: "body" },
+    h("div", { class: "row" }, field("version", version), field("stream", stream), field("users", users)),
+    h("div", { class: "actions" }, button),
+    h("p", { class: "hint", style: "margin:10px 0 0" },
+      "For a build nobody wrote notes for: an outage, a quiet fix, a decision. The entries are added inside the draft.")));
+}
+
+function newPostForm() {
+  const field = (label, input) => h("div", { class: "field" }, h("label", {}, label), input);
+  const title = h("input", { type: "text", placeholder: "Autumn update" });
+  const author = h("input", { type: "text", placeholder: "GooGuTeam" });
+  const slug = h("input", { type: "text", placeholder: "autumn-update (defaults to the title)" });
+  const series = h("input", { type: "text", placeholder: "game_updates, optional" });
+  const date = h("input", { type: "text", placeholder: "now, or 2026-10-30 09:00:00 +0000" });
+  const button = h("button", { class: "primary" }, "Start a post");
+
+  button.addEventListener("click", async () => {
+    if (!title.value.trim() || !author.value.trim()) {
+      report(new Error("a post needs a title and an author; the schema refuses one without either"));
+      return;
+    }
+    button.disabled = true;
+    try {
+      const result = await api("/api/post", { method: "POST", body: JSON.stringify({
+        title: title.value.trim(),
+        author: author.value.trim(),
+        slug: slug.value.trim(),
+        series: series.value.trim(),
+        date: date.value.trim(),
+      }) });
+      toast("wrote " + result.path);
+      await refresh();
+      go("#/post/" + encodeURIComponent(result.path));
+    } catch (error) { report(error); }
+    finally { button.disabled = false; }
+  });
+
+  return h("div", { class: "card" }, h("div", { class: "body" },
+    h("div", { class: "row" }, field("title", title), field("author", author)),
+    h("div", { class: "row" }, field("slug", slug), field("series", series), field("date", date)),
+    h("div", { class: "actions" }, button),
+    h("p", { class: "hint", style: "margin:10px 0 0" },
+      "The file is named after the date it is published on, so the slug only has to be unique that day.")));
+}
+
+function newDraftForm() {
+  const field = (label, input) => h("div", { class: "field" }, h("label", {}, label), input);
+  const repository = h("input", { type: "text", placeholder: "GooGuTeam/g0v0-server" });
+  const kind = h("select", {}, h("option", { value: "release" }, "release"), h("option", { value: "range" }, "commit range"));
+  const reference = h("input", { type: "text", placeholder: "2026.1009.0-g0v0", value: "" });
+  const repoPath = h("input", { type: "text", placeholder: "D:/Projects/g0v0-server (reads the range from a clone)" });
+  const version = h("input", { type: "text", placeholder: "2026.1029.0-g0v0 (defaults to the tag)" });
+  const stream = h("input", { type: "text", placeholder: "g0v0 (defaults to the version suffix)" });
+  const users = h("input", { type: "number", placeholder: "0" });
+  const everything = h("input", { type: "checkbox" });
+  const firstParent = h("input", { type: "checkbox" });
+  const mode = h("select", {},
+    h("option", { value: "new" }, "if a draft exists: stop"),
+    h("option", { value: "append" }, "if a draft exists: append to it"),
+    h("option", { value: "replace" }, "if a draft exists: replace it"));
+  const button = h("button", { class: "primary" }, "Read it into a draft");
+  const status = h("span", { class: "hint" });
+
+  const syncReference = () => {
+    reference.placeholder = kind.value === "release" ? "2026.1009.0-g0v0" : "2026.1002.0..2026.1009.0";
+  };
+  kind.addEventListener("change", syncReference);
+
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    status.textContent = "reading…";
+    try {
+      const payload = {
+        repository: repository.value.trim(),
+        range: kind.value === "range" ? reference.value.trim() : "",
+        release: kind.value === "release" ? reference.value.trim() : "",
+        repo_path: repoPath.value.trim(),
+        version: version.value.trim(),
+        stream: stream.value.trim(),
+        users: users.value.trim(),
+        everything: everything.checked,
+        first_parent: firstParent.checked,
+        mode: mode.value,
+      };
+      const result = await api("/api/extract", { method: "POST", body: JSON.stringify(payload) });
+      toast(`${result.entries} candidate(s) in ${result.path}`);
+      await refresh();
+      go("#/draft/" + encodeURIComponent(result.path));
+    } catch (error) {
+      report(error);
+      status.textContent = "";
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  return h("div", { class: "card" }, h("div", { class: "body" },
+    h("div", { class: "row" }, field("repository", repository), field("source", kind), field("reference", reference)),
+    h("div", { class: "row" }, field("clone (optional)", repoPath), field("version", version), field("stream", stream)),
+    h("div", { class: "row", style: "margin-top:10px;align-items:center" },
+      h("label", { class: "check" }, everything, "keep chores and dependency bumps"),
+      h("label", { class: "check" }, firstParent, "mainline only"),
+      mode, h("span", { class: "spacer" }), button, status),
+    h("p", { class: "hint", style: "margin:10px 0 0" },
+      "A release is read through the GitHub API, which needs GITHUB_TOKEN or `gh auth login`. " +
+      "A commit range can be read from a clone instead, with no network at all.")));
+}
+
+function postList() {
+  if (!state.overview.posts.length) return h("div", { class: "empty" }, "No post yet.");
+  return h("div", { class: "card" }, h("div", { class: "body" }, h("table", {},
+    h("thead", {}, h("tr", {}, h("th", {}, "date"), h("th", {}, "title"), h("th", {}, "author"), h("th", {}, "series"))),
+    h("tbody", {}, ...state.overview.posts.map((post) => h("tr", {
+      class: "clickable",
+      on: { click: () => go("#/post/" + encodeURIComponent(post.path)) },
+    },
+      h("td", { class: "mono" }, (post.date || "").slice(0, 10)),
+      h("td", {}, post.title || post.slug),
+      h("td", {}, post.author || ""),
+      h("td", { class: "hint" }, post.series || ""),
+    ))))));
+}
+
+// -- the entry editor, shared by drafts and builds -----------------------------------
+
+const TYPES = ["add", "fix", "misc"];
+
+function entryEditor(items, dirty) {
+  const list = h("div", { class: "entries" });
+  const paint = () => {
+    list.replaceChildren(
+      ...items.map((item, index) => entryRow(item, index, items, { repaint: paint, dirty })));
+  };
+
+  // A draft that started empty has nothing to edit until this exists, so the editor owns
+  // the way in as well as the rows.
+  const add = h("button", { class: "small" }, "+ add an entry");
+  add.addEventListener("click", () => {
+    items.push({ status: "keep", entry: { type: "add" } });
+    dirty();
+    paint();
+  });
+
+  paint();
+  return h("div", {}, list, h("div", { class: "actions" }, add));
+}
+
+// An entry with neither a title nor a message is one the schema refuses, so it can be
+// typed but not published; saying so here beats a schema error after the fact.
+function entryHasText(item) {
+  const entry = item.entry || {};
+  return Boolean(String(entry.title || "").trim() || String(entry.message || "").trim());
+}
+
+function entryRow(item, index, items, { repaint, dirty }) {
+  const entry = item.entry || (item.entry = {});
+  const dropped = item.status === "drop";
+  const row = h("div", { class: "entry" + (dropped ? " dropped" : "") });
+  // Typing must not repaint: a repaint rebuilds the input and the caret goes with it.
+  const touch = () => dirty();
+
+  const keep = h("input", { type: "checkbox", checked: !dropped });
+  keep.addEventListener("change", () => {
+    item.status = keep.checked ? "keep" : "drop";
+    dirty();
+    repaint();
+  });
+
+  const type = h("select", {}, ...TYPES.map((value) => h("option", { value, selected: (entry.type || "misc") === value }, value)));
+  type.addEventListener("change", () => { entry.type = type.value; touch(); });
+
+  const category = h("input", { type: "text", class: "grow", placeholder: "Category (Miscellaneous)", value: entry.category || "" });
+  category.addEventListener("input", () => { entry.category = category.value.trim() || undefined; touch(); });
+
+  const major = h("input", { type: "checkbox", checked: entry.major === true });
+  major.addEventListener("change", () => { entry.major = major.checked || undefined; touch(); });
+
+  const up = h("button", { class: "small", title: "move up", disabled: index === 0 }, "↑");
+  up.addEventListener("click", () => { [items[index - 1], items[index]] = [items[index], items[index - 1]]; dirty(); repaint(); });
+  const down = h("button", { class: "small", title: "move down", disabled: index === items.length - 1 }, "↓");
+  down.addEventListener("click", () => { [items[index + 1], items[index]] = [items[index], items[index + 1]]; dirty(); repaint(); });
+  const remove = h("button", { class: "small", title: "remove this entry" }, "✕");
+  remove.addEventListener("click", () => { items.splice(index, 1); dirty(); repaint(); });
+
+  const title = h("input", { type: "text", class: "title-input", placeholder: "Title — one line, what changed", value: entry.title || "" });
+  title.addEventListener("input", () => { entry.title = title.value; touch(); });
+
+  const message = h("textarea", { class: "message", placeholder: "Message — Markdown, optional" });
+  message.value = entry.message || "";
+  message.addEventListener("input", () => { entry.message = message.value; touch(); });
+
+  const url = h("input", { type: "text", class: "url", placeholder: "URL", value: entry.url || "" });
+  url.addEventListener("input", () => { entry.url = url.value.trim() || undefined; touch(); });
+
+  const provenance = item.provenance || {};
+  const origin = [provenance.source, provenance.repository, provenance.pull_request ? "#" + provenance.pull_request : null,
+                  provenance.commit ? provenance.commit.slice(0, 8) : null, provenance.author]
+    .filter(Boolean).join(" · ");
+
+  row.append(
+    h("div", { class: "entry-head" },
+      h("label", { class: "check" }, keep, "keep"),
+      type,
+      category,
+      h("label", { class: "check" }, major, "major"),
+      h("span", { class: "spacer" }),
+      up, down, remove),
+    title,
+    message,
+    url,
+    origin ? h("div", { class: "provenance" }, origin) : null);
+  return row;
+}
+
+// Only the fields the schema knows are written back: an empty box is a field somebody
+// cleared, not a field with an empty string in it.
+const ENTRY_KEYS = ["id", "type", "category", "title", "message", "url", "repository",
+                    "github_url", "github_pull_request_id", "major", "created_at"];
+
+function cleanEntry(entry) {
+  const out = {};
+  for (const key of ENTRY_KEYS) {
+    const value = entry[key];
+    if (value === undefined || value === null || value === "") continue;
+    if (key === "major" && value !== true) continue;
+    if (key === "github_pull_request_id") {
+      const number = Number(value);
+      if (Number.isFinite(number)) out[key] = number;
+      continue;
+    }
+    out[key] = value;
+  }
+  if (entry.github_user && Object.keys(entry.github_user).length) out.github_user = entry.github_user;
+  return out;
+}
+
+function cleanDocument(document) {
+  const copy = JSON.parse(JSON.stringify(document));
+  copy.entries = (copy.entries || []).map((item) => ({
+    ...item,
+    status: item.status === "drop" ? "drop" : "keep",
+    entry: cleanEntry(item.entry || {}),
+  }));
+  return copy;
+}
+
+// A draft holds one wrapper per candidate -- the decision about it, and where it came from --
+// while a published build holds the entries themselves. The editor only knows the first
+// shape, so a build is wrapped on the way in and unwrapped on the way out. Meanwhile
+// `cleanDocument` reads `item.entry`, so handing it a build's own array would empty every
+// entry it was given.
+function wrapEntries(entries) {
+  return (entries || []).map((entry) => ({ status: "keep", entry }));
+}
+
+function unwrapEntries(items) {
+  return cleanDocument({ entries: items }).entries.map((item) => item.entry);
+}
+
+// The count in the heading is read from the same array the rows edit, so a toggle has to
+// ask for it again; a heading computed once would keep claiming the old number.
+function countKept(items) {
+  return items.filter((item) => item.status !== "drop").length;
+}
+
+function numberOrUndefined(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && value !== "" ? number : undefined;
+}
+
+function textOrUndefined(value) {
+  const text = (value || "").trim();
+  return text || undefined;
+}
+
+// -- draft view ---------------------------------------------------------------------
+
+function draftView() {
+  const document_ = state.draft.document;
+  const items = document_.entries || [];
+  const label = () => `entries — ${countKept(items)} kept of ${items.length}`;
+  const heading = h("h2", { class: "section" }, label());
+  const edited = () => { heading.textContent = label(); state.dirty = true; };
+
+  const createdAt = h("input", { type: "text", placeholder: "2026-10-29 08:00:00 +0000", value: document_.created_at || "" });
+  createdAt.addEventListener("input", () => { state.dirty = true; });
+  const users = h("input", { type: "number", placeholder: "0", value: document_.users ?? "" });
+  users.addEventListener("input", () => { state.dirty = true; });
+  const youtube = h("input", { type: "text", placeholder: "video id", value: document_.youtube_id || "" });
+  youtube.addEventListener("input", () => { state.dirty = true; });
+  const displayVersion = h("input", { type: "text", placeholder: "shown version", value: document_.display_version || "" });
+  displayVersion.addEventListener("input", () => { state.dirty = true; });
+
+  const collect = () => {
+    document_.created_at = textOrUndefined(createdAt.value);
+    const parsedUsers = numberOrUndefined(users.value);
+    if (parsedUsers === undefined) delete document_.users; else document_.users = parsedUsers;
+    document_.youtube_id = textOrUndefined(youtube.value);
+    document_.display_version = textOrUndefined(displayVersion.value);
+    return cleanDocument(document_);
+  };
+
+  const save = async () => {
+    try {
+      await api("/api/draft?path=" + encodeURIComponent(state.draft.path),
+        { method: "PUT", body: JSON.stringify(collect()) });
+      state.dirty = false;
+      toast("draft saved");
+      await refresh();
+    } catch (error) { report(error); }
+  };
+
+  const publish = async () => {
+    if (!countKept(items)) {
+      toast("nothing is kept, so there is no build to write", "error");
+      return;
+    }
+    const missing = items.findIndex((item) => item.status !== "drop" && !entryHasText(item));
+    if (missing >= 0) {
+      toast(`entry ${missing + 1} has neither a title nor a message, so it cannot be published`, "error");
+      return;
+    }
+    if (!confirm(`Write ${document_.version} into changelog/${document_.stream}/ and keep ${countKept(items)} entrie(s)?`)) return;
+    try {
+      await api("/api/draft?path=" + encodeURIComponent(state.draft.path),
+        { method: "PUT", body: JSON.stringify(collect()) });
+      const result = await api("/api/publish", { method: "POST", body: JSON.stringify({ path: state.draft.path }) });
+      state.dirty = false;
+      toast("published " + result.path);
+      await refresh();
+      go("#/build/" + encodeURIComponent(result.path));
+    } catch (error) { report(error); }
+  };
+
+  const remove = async () => {
+    if (!confirm("Delete this draft? The build it would have written is untouched.")) return;
+    try {
+      await api("/api/draft?path=" + encodeURIComponent(state.draft.path), { method: "DELETE" });
+      state.dirty = false;
+      toast("draft deleted");
+      await refresh();
+      go("#/");
+    } catch (error) { report(error); }
+  };
+
+  const sources = (document_.sources || []).map((source) =>
+    `${source.kind} ${source.repository}@${source.reference}`).join(", ");
+
+  return h("div", {},
+    h("h3", { class: "title" }, document_.version),
+    h("p", { class: "hint" }, `stream ${document_.stream} · from ${sources || "no source, written by hand"} · generated ${document_.generated_at || "?"}`),
+    h("div", { class: "card" }, h("div", { class: "body" },
+      h("div", { class: "row" },
+        h("div", { class: "field" }, h("label", {}, "created at"), createdAt),
+        h("div", { class: "field" }, h("label", {}, "users"), users),
+        h("div", { class: "field" }, h("label", {}, "display version"), displayVersion),
+        h("div", { class: "field" }, h("label", {}, "youtube"), youtube)))),
+
+    heading,
+    entryEditor(items, edited),
+
+    h("div", { class: "actions" },
+      h("button", { class: "primary", on: { click: save } }, "Save draft"),
+      h("button", { on: { click: publish } }, "Publish build"),
+      h("button", { class: "danger", on: { click: remove } }, "Delete draft"),
+      h("span", { class: "hint" }, "publishing writes the build file and leaves this draft in place")));
+}
+
+// -- build view ---------------------------------------------------------------------
+
+function buildView() {
+  const document_ = state.build.document;
+  const items = wrapEntries(document_.entries);
+  const label = () => `entries — ${countKept(items)} of ${items.length} in this build; unchecking one drops it on save`;
+  const heading = h("h2", { class: "section" }, label());
+  const edited = () => { heading.textContent = label(); state.dirty = true; };
+
+  const save = async () => {
+    const keptItems = items.filter((item) => item.status !== "drop");
+    if (!keptItems.length) {
+      toast("a build needs at least one entry; keep one before saving", "error");
+      return;
+    }
+    const missing = keptItems.findIndex((item) => !entryHasText(item));
+    if (missing >= 0) {
+      toast(`entry ${missing + 1} has neither a title nor a message, so the schema would refuse it`, "error");
+      return;
+    }
+    try {
+      const body = { ...document_, entries: unwrapEntries(keptItems) };
+      await api("/api/build?path=" + encodeURIComponent(state.build.path),
+        { method: "PUT", body: JSON.stringify(body) });
+      state.dirty = false;
+      toast("build saved");
+      await refresh();
+    } catch (error) { report(error); }
+  };
+
+  return h("div", {},
+    h("h3", { class: "title" }, document_.version || state.build.path),
+    h("p", { class: "hint" }, `${state.build.path} · ${items.length} entrie(s)` +
+      (document_.created_at ? ` · released ${document_.created_at}` : "") +
+      ` · users ${document_.users ?? 0}`),
+    h("div", { class: "card" }, h("div", { class: "body" },
+      h("p", { class: "hint", style: "margin:0" },
+        "This file is already published. Editing it changes what the client is served, which is right for a " +
+        "typo and wrong for a change of meaning — that belongs in a new build."))),
+    heading,
+    entryEditor(items, edited),
+    h("div", { class: "actions" }, h("button", { class: "primary", on: { click: save } }, "Save build")));
+}
+
+// -- post view ----------------------------------------------------------------------
+
+function postView() {
+  const front = { ...state.post.front_matter };
+  const fields = ["title", "author", "date", "updated", "series"];
+  const inputs = {};
+
+  const save = async () => {
+    const next = {};
+    for (const key of Object.keys(inputs)) {
+      const value = inputs[key].value.trim();
+      if (!value) continue;
+      next[key] = key === "id" ? Number(value) : value;
+    }
+    try {
+      await api("/api/post?path=" + encodeURIComponent(state.post.path),
+        { method: "PUT", body: JSON.stringify({ front_matter: next, body: body.value }) });
+      state.dirty = false;
+      toast("post saved");
+      await refresh();
+    } catch (error) { report(error); }
+  };
+
+  const body = h("textarea", { class: "message", style: "min-height:420px", placeholder: "Markdown body" });
+  body.value = state.post.body || "";
+  body.addEventListener("input", () => { state.dirty = true; });
+
+  const row = fields.map((key) => {
+    const input = h("input", { type: "text", value: front[key] || "" });
+    input.addEventListener("input", () => { state.dirty = true; });
+    inputs[key] = input;
+    return h("div", { class: "field" }, h("label", {}, key), input);
+  });
+
+  if (front.id !== undefined) {
+    const input = h("input", { type: "number", value: front.id });
+    input.addEventListener("input", () => { state.dirty = true; });
+    inputs.id = input;
+    row.push(h("div", { class: "field" }, h("label", {}, "id"), input));
+  }
+
+  return h("div", {},
+    h("h3", { class: "title" }, front.title || state.post.path),
+    h("p", { class: "hint" }, state.post.path),
+    h("div", { class: "card" }, h("div", { class: "body" }, h("div", { class: "row" }, ...row))),
+    h("h2", { class: "section" }, "body"),
+    h("div", { class: "card" }, h("div", { class: "body" }, body)),
+    h("div", { class: "actions" }, h("button", { class: "primary", on: { click: save } }, "Save post")));
+}
+
+// -- start --------------------------------------------------------------------------
+
+load().catch(report);
+</script>
+</body>
+</html>
