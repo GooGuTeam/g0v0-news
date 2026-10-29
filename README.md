@@ -29,7 +29,12 @@ changelog/
     2026.1002.0-g0v0.json
   robin/
     2026.1015.0-robin.json
+drafts/
+  2026.1029.0-g0v0.json
 ```
+
+`drafts/` is where `tools/newsctl.py` leaves a build that has not been published yet; it
+sits outside both content trees on purpose, and nothing under it is served.
 
 Posts may also sit flat under `news/`; the year directory is a convention taken from
 osu-wiki, not a requirement. The directory under `changelog/` is the stream name that
@@ -181,6 +186,131 @@ pull request, in `.github/workflows/validate.yml`.
 `uv.lock` is committed, so the version `jsonschema` resolves to is the one the schema
 checks were written against. It records whichever package index resolved it; if your
 index differs from the one in the lock, `uv lock --upgrade` resolves it again.
+
+## Keeping it up to date
+
+Two ways into the same set of modules in `tools/`: a command line, and a page it serves.
+
+```bash
+uv run python tools/newsctl.py status          # what is in the tree, and what the checker says
+uv run python tools/newsctl.py serve           # the same, as a page on 127.0.0.1:8765
+```
+
+`status`, `check`, `draft`, `drafts`, `show`, `entry`, `publish` and `post new` are the
+commands;
+`serve` opens the console, which edits the same files through the same functions. The
+console is built from the standard library and one HTML file with no build step, so it is
+something you run rather than something you install, and it binds to `127.0.0.1` with no
+login because it writes into this checkout and nothing else.
+
+### Drafts, and why they are not in `changelog/`
+
+A build file is the end of a process, and the tools start it from a source: a release
+somebody published, or a range of commits.
+
+```bash
+uv run python tools/newsctl.py draft --repository GooGuTeam/g0v0-server --release 2026.1009.0-g0v0
+uv run python tools/newsctl.py draft --repository GooGuTeam/g0v0-server \
+    --range 2026.1002.0..2026.1009.0 --repo-path ../g0v0-server
+uv run python tools/newsctl.py show 2026.1009.0-g0v0
+uv run python tools/newsctl.py publish 2026.1009.0-g0v0
+```
+
+That leaves a draft at `drafts/<version>.json`, beside the content trees rather than
+inside one of them: the server publishes whatever it finds under `changelog/`, so a draft
+stored there would be published by being saved. A build usually summarizes more than one
+repository, so a second read of the same version is `--append`, which adds what is not
+already there and keeps the decisions made about what is; `--force` replaces the draft
+instead.
+
+A draft is a list of candidate entries, each carrying `status: keep` or `status: drop` and
+a `provenance` that says which commit or pull request it came from. `publish` writes the
+kept ones, in order, with the provenance and the status left behind -- it is how the draft
+was made, not part of what the client is served. It refuses to replace an existing build,
+and it refuses one whose `-suffix` disagrees with the directory.
+
+Nothing is committed, and nothing is published without `publish`. Deciding what a change
+means to a player is the step these tools cannot take.
+
+### Writing one from nothing
+
+Not every change has a release behind it: an outage, a fix that shipped quietly, a decision
+worth explaining. Those start from an empty draft rather than a source, and end up in the
+same file as anything extracted.
+
+```bash
+uv run python tools/newsctl.py draft --blank --version 2026.1030.0-g0v0
+uv run python tools/newsctl.py entry 2026.1030.0-g0v0 \
+    --title "Spectator rooms stay open when the host leaves" \
+    --type fix --category Spectator --message "The room is closed by the last player, not the host."
+uv run python tools/newsctl.py publish 2026.1030.0-g0v0
+```
+
+A blank draft records `sources: []`, which is how a reader of the draft can tell nothing was
+extracted. `entry` checks the two things a source would have got right for you -- that the
+type is one the client knows, and that the entry says what changed -- and decides nothing
+else. Publishing an empty draft is refused, because a build that lists nothing is a file
+left half-written.
+
+The console has the same two ways in: "start from nothing" on the overview opens a draft or
+a post, and the draft editor adds and removes entries, so a build can be written there
+without touching the JSON. A post is `post new --title ... --author ...`, or the second card
+on that same screen; either way the file is named after the date it is published on, and the
+body is written in the editor that opens.
+
+### What a source can and cannot know
+
+| Source | Gives | Does not give |
+| --- | --- | --- |
+| `--release <tag>` | A body already written for a reader, its publication time, and a version when the tag is one | Anything the author left out |
+| `--range <base..head>` | Every commit that landed, including the ones nobody would write down | Wording, grouping, or a version |
+
+A release body is read with GitHub's own template in mind: `## What's Changed` names the
+list and is not a category, headings that name a kind of change (`## Bug Fixes`,
+`### Breaking Changes`) set the type of the bullets under them, and any other heading
+becomes the category. A bullet carrying its own `type(scope):` prefix overrides both.
+
+Commits are read as conventional commits: the prefix decides the type, the scope becomes
+the category (`api` is `API`, because that is how the committed files spell it), and `!`
+or a `BREAKING CHANGE` trailer sets `major`. Merge commits are dropped, since their
+subject names a branch rather than a change, and so are `chore`, `ci`, `docs`, `build`,
+`test`, `style` and `release` -- pass `--everything` when they matter. Two commits that
+mention the same pull request collapse into one entry, which records how many commits it
+stands for.
+
+A range is read from a clone when `--repo-path` is given, and from the compare API
+otherwise; the API stops at 250 commits, which is a limit of the endpoint rather than of
+this tool. Reading from a clone needs no network at all, and `--repository` is then only
+needed for the URLs the entries carry. Whichever is used, a repository that merges pull
+requests without squashing produces one entry per commit, which is a reason drafts have a
+`drop` state rather than a reason to trust the output.
+
+The API is reached with `GITHUB_TOKEN` or `GH_TOKEN` when either is set, and through
+`gh auth token` when it is not, so a machine where `gh` is logged in already has one.
+Without a token it still works, at sixty requests an hour.
+
+The tools' own tests run against a temporary copy of this repository:
+
+```bash
+uv run python tools/test_toolkit.py
+```
+
+### Linting the tools
+
+`ruff` and `pyright` are in the `dev` dependency group, so the environment `uv sync` builds
+has them:
+
+```bash
+uv run ruff check tools/            # imports, shadowed names, simplifications, bandit
+uv run ruff format --check tools/   # formatting is mechanical, so it is not argued about
+uv run pyright tools/               # types: `standard`, plus a complaint about a bare `dict`
+```
+
+CI runs all three, so a lint failure is a red build rather than a note in review. Two
+places carry a `# noqa` with the reason next to it: the `git` and `gh` calls, whose
+executables come from `PATH` on purpose, and the one `urllib` request, whose scheme is a
+constant. The tests are `unittest`, and `tools/test_toolkit.py` is exempted from the
+pytest-style rules rather than from the runner it uses.
 
 ## Editor support
 
