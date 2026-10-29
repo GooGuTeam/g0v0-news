@@ -4,13 +4,25 @@
     {
       "name": "g0v0",
       "id": 1,
-      "display_name": "g0v0",
+      "display_name": "g0v0!",
       "is_featured": true
     },
     {
       "name": "robin",
       "id": 2,
-      "display_name": "robin",
+      "display_name": "Robin",
+      "is_featured": false
+    },
+    {
+      "name": "server",
+      "id": 3,
+      "display_name": "Server",
+      "is_featured": false
+    },
+    {
+      "name": "web",
+      "id": 4,
+      "display_name": "Website",
       "is_featured": false
     }
   ]
