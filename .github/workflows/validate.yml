@@ -15,10 +15,26 @@ jobs:
           python-version: "3.12"
           enable-cache: true
 
-      # Runs first: a schema that stopped saying what it used to say would make the
-      # content check below pass for the wrong reason.
+      # Cheapest failure first. `ruff format --check` is here because the formatting is
+      # mechanical: a diff that is only whitespace should not need an argument in review.
+      - name: Lint
+        run: |
+          uv run ruff check tools/
+          uv run ruff format --check tools/
+
+      - name: Type-check
+        run: uv run pyright tools/
+
+      # Runs before the content check: a schema that stopped saying what it used to say
+      # would make that check pass for the wrong reason.
       - name: Check JSON schemas
         run: uv run python tools/validate.py --self-test
 
       - name: Check content
         run: uv run python tools/validate.py
+
+      # The tools write what is checked above, so a tool that started writing something
+      # else would turn a red build into a green one. They are tested against a copy of
+      # the repository, so this step cannot touch the checkout.
+      - name: Check the maintenance tools
+        run: uv run python tools/test_toolkit.py

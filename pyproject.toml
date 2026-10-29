@@ -13,3 +13,83 @@ dependencies = [
 # Nothing here is installed as a package: the environment exists so that
 # `uv run python tools/validate.py` can check the content, and so that CI can do the same.
 package = false
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.format]
+line-ending = "lf"
+
+[tool.ruff.lint]
+select = [
+  "F",     # Pyflakes
+  "W",     # pycodestyle warnings
+  "E",     # pycodestyle errors
+  "I",     # isort
+  "UP",    # pyupgrade
+  "ASYNC", # flake8-async
+  "C4",    # flake8-comprehensions
+  "T10",   # flake8-debugger
+  "PYI",   # flake8-pyi
+  "PT",    # flake8-pytest-style
+  "Q",     # flake8-quotes
+  "TID",   # flake8-tidy-imports
+  "RUF",   # Ruff-specific rules
+  "YTT",   # flake8-2020
+  "S",     # flake8-bandit
+  "INP",   # flake8-no-pep420
+  "SIM",   # flake8-simplify
+  "ARG",   # flake8-unused-arguments
+  "PTH",   # flake8-use-pathlib
+  "N",     # pep8-naming
+  "FURB"   # refurb
+]
+ignore = [
+  "E402",   # module-import-not-at-top-of-file
+  "UP037",  # quoted-annotation
+  "RUF001", # ambiguous-unicode-character-string
+  "RUF002", # ambiguous-unicode-character-docstring
+  "RUF003", # ambiguous-unicode-character-comment
+  "S101",   # assert
+  "S311",   # suspicious-non-cryptographic-random-usage
+]
+
+[tool.ruff.lint.extend-per-file-ignores]
+# `tools/` is a directory of scripts, imported by bare name because they are run as
+# `python tools/<name>.py`. It is not a package, so it has no `__init__.py`.
+"tools/*.py" = ["INP001"]
+# The tests are `unittest`, run as `python tools/test_toolkit.py`. Buying pytest to satisfy
+# a style rule would put a dependency on the test runner the repository does not have.
+"tools/test_toolkit.py" = ["PT009", "PT027"]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+force-wrap-aliases = true
+combine-as-imports = true
+order-by-type = true
+relative-imports-order = "closest-to-furthest"
+section-order = ["future", "standard-library", "first-party", "local-folder", "third-party"]
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+mark-parentheses = false
+
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = true
+
+[tool.pyright]
+pythonVersion = "3.12"
+pythonPlatform = "All"
+
+typeCheckingMode = "standard"
+# A bare `dict` in a signature says nothing about what is in it: this one is cheap to keep on.
+reportMissingTypeArgument = true
+disableBytesTypePromotions = true
+exclude = [".venv/", "venv/"]
+
+[dependency-groups]
+dev = [
+  "pyright>=1.1.411",
+  "ruff>=0.16.2",
+]
