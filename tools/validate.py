@@ -10,17 +10,21 @@ field means editing the schema rather than this script.
 Exits with 1 when anything is wrong, so a CI job can run it as is. The rules below that
 a schema cannot express -- identifiers being unique, a version matching its file name, a
 stream having a directory -- are the reason this is a script rather than a linter.
+
+The parsers are not here: `formats.py` reads the same front matter and the same
+timestamps for the tools that write them, and one reader for both directions is what
+makes "it passes" mean the server will accept it.
 """
 
 import argparse
 import json
-import re
-import zlib
-from datetime import UTC, datetime
 from pathlib import Path
+import re
 from typing import Any
 
-from jsonschema import Draft202012Validator, FormatChecker, exceptions
+from formats import SLUG, build_id, date_from_version, parse_timestamp, split_front_matter
+from jsonschema import Draft202012Validator
+from schemas import read_schema, validate
 
 ROOT = Path(__file__).resolve().parent.parent
 CHANGELOG = ROOT / "changelog"
@@ -28,12 +32,6 @@ NEWS = ROOT / "news"
 
 # Files at the root of changelog/ that are not builds.
 CHANGELOG_ROOT_FILES = frozenset({"streams.json", "build.schema.json", "streams.schema.json"})
-
-_FRONT_MATTER_PATTERN = re.compile(r"\A---[ \t]*\r?\n(?P<body>.*?)(?:\r?\n)?---[ \t]*(?:\r?\n|\Z)", re.DOTALL)
-_TIMESTAMP_OFFSET_PATTERN = re.compile(r"([+-])(\d{2}):?(\d{2})$")
-_VERSION_DATE_PATTERN = re.compile(r"^(?P<year>\d{4})\.(?P<monthday>\d{1,4})\.")
-_VERSION_DIGITS_PATTERN = re.compile(r"[^0-9.]")
-_SLUG_PATTERN = re.compile(r"^(?P<date>[0-9]{8})-[a-z0-9-]+$")
 
 
 class Report:
@@ -66,124 +64,6 @@ def load_json(path: Path, report: Report) -> Any | None:
     except ValueError as error:
         report.error(relative(path), f"is not valid JSON: {error}")
         return None
-
-
-def read_schema(path: Path) -> Draft202012Validator:
-    """Read a schema, and refuse a file that is not a valid schema itself."""
-    schema: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
-    Draft202012Validator.check_schema(schema)
-    return Draft202012Validator(schema, format_checker=FormatChecker())
-
-
-def describe(error: exceptions.ValidationError) -> str:
-    """Render one failure as `/<field>: reason`.
-
-    `anyOf` and `oneOf` only report that no branch matched, which says nothing about
-    what is actually wrong; the branch that got furthest says it, so that is the one
-    shown.
-    """
-    parts = list(error.absolute_path)
-    message = error.message
-
-    if error.context:
-        best = exceptions.best_match(error.context)
-        if best is not None:
-            parts.extend(best.absolute_path)
-            message = best.message
-
-    location = "/" + "/".join(str(part) for part in parts) if parts else "/"
-    return f"{location}: {message}"
-
-
-def validate(instance: Any, validator: Draft202012Validator) -> list[str]:
-    """Check an instance against a schema, one line per failure."""
-    return [describe(error) for error in validator.iter_errors(instance)]
-
-
-def parse_scalar(value: str) -> Any:
-    """Read one front matter value, as the server reads it.
-
-    Kept in step with `parse_scalar` in g0v0-server: quoted strings, inline lists,
-    booleans, nulls and integers, and everything else as text. A front matter that this
-    reads differently from the server would pass here and be refused there.
-    """
-    value = value.strip()
-    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
-        return value[1:-1]
-    if value.startswith("[") and value.endswith("]"):
-        inner = value[1:-1].strip()
-        return [parse_scalar(part) for part in inner.split(",")] if inner else []
-    if value.lower() in ("true", "false"):
-        return value.lower() == "true"
-    if value.lower() in ("null", "~"):
-        return None
-    if value.lstrip("-").isdigit():
-        return int(value)
-    return value
-
-
-def split_front_matter(markdown: str) -> dict[str, Any]:
-    """Read the front matter block of a post.
-
-    Kept in step with `split_front_matter` in g0v0-server: flat keys only, and a key
-    with an empty value is left out rather than stored as an empty string.
-    """
-    match = _FRONT_MATTER_PATTERN.match(markdown.lstrip("\ufeff"))
-    if match is None:
-        return {}
-
-    values: dict[str, Any] = {}
-    for line in match.group("body").splitlines():
-        content = line.strip()
-        if not content or content.startswith("#") or line[0] in " \t":
-            continue
-
-        key, separator, value = line.partition(":")
-        if not separator or not value.strip():
-            continue
-        values[key.strip()] = parse_scalar(value)
-
-    return values
-
-
-def parse_timestamp(value: object) -> datetime | None:
-    """Read a timestamp, as the server reads it: without an offset it is UTC."""
-    if not isinstance(value, str):
-        return None
-
-    text = re.sub(r"\s+", " ", value.strip())
-    if not text:
-        return None
-
-    text = text.replace(" ", "T", 1).replace(" ", "")
-    text = _TIMESTAMP_OFFSET_PATTERN.sub(r"\1\2:\3", text)
-    if text.endswith("Z"):
-        text = f"{text[:-1]}+00:00"
-
-    try:
-        parsed = datetime.fromisoformat(text)
-    except ValueError:
-        return None
-    return parsed.replace(tzinfo=UTC) if parsed.tzinfo is None else parsed.astimezone(UTC)
-
-
-def date_from_version(version: str) -> datetime | None:
-    """Read the release date a version carries, as the server reads it."""
-    match = _VERSION_DATE_PATTERN.match(version)
-    if match is None:
-        return None
-
-    monthday = match.group("monthday").zfill(4)
-    try:
-        return datetime(int(match.group("year")), int(monthday[:2]), int(monthday[2:]), tzinfo=UTC)
-    except ValueError:
-        return None
-
-
-def build_id(version: str) -> int:
-    """Derive the identifier of a build, as the server derives it."""
-    digits = _VERSION_DIGITS_PATTERN.sub("", version.split("-", 1)[0]).replace(".", "")
-    return int(digits) if digits.isdigit() else zlib.crc32(version.encode())
 
 
 def check_changelog(report: Report) -> None:
@@ -318,11 +198,23 @@ def check_news(report: Report) -> None:
         else:
             identifiers[identifier] = relative(path)
 
-        slug = _SLUG_PATTERN.match(path.stem)
+        slug = SLUG.match(path.stem)
         if slug is None:
             report.warning(relative(path), "is not named `YYYYMMDD-some-title`, which is how the other posts are")
         elif slug.group("date") != published.strftime("%Y%m%d"):
             report.warning(relative(path), f"is named after {slug.group('date')} but is dated {published.date()}")
+
+
+def check() -> Report:
+    """Check the whole repository, and hand back what was found.
+
+    The tools that write content call this rather than shelling out to the script, so
+    that "the console says it is fine" and "CI says it is fine" are the same check.
+    """
+    report = Report()
+    check_changelog(report)
+    check_news(report)
+    return report
 
 
 def run_cases(schema: Draft202012Validator, cases: list[tuple[str, Any, bool]]) -> int:
@@ -398,9 +290,7 @@ def main(argv: list[str] | None = None) -> int:
     if arguments.self_test:
         return self_test()
 
-    report = Report()
-    check_changelog(report)
-    check_news(report)
+    report = check()
 
     for message in report.errors:
         print(f"error    {message}")
