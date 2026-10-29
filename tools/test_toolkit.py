@@ -29,6 +29,23 @@ REPO = TOOLS.parent
 IGNORED = shutil.ignore_patterns(".git", ".venv", ".idea", ".vscode", "drafts", "__pycache__")
 
 
+def copy_repository(parent: Path) -> Path:
+    """Copy this repository into `parent`, leaving behind whatever content it holds.
+
+    `changelog/` and `news/` here hold what the person running the tests has published, and
+    a checkout on CI holds none of it: a test that read those files would pass on one
+    machine and fail on the other. A copy therefore starts empty, and each test writes the
+    content it is about.
+    """
+    repo = parent / "repo"
+    shutil.copytree(REPO, repo, ignore=IGNORED)
+    for tree in ("changelog", "news"):
+        for directory in sorted((repo / tree).iterdir()):
+            if directory.is_dir():
+                shutil.rmtree(directory)
+    return repo
+
+
 class ReleaseTests(unittest.TestCase):
     """A release body, which somebody already wrote for a reader."""
 
@@ -226,15 +243,8 @@ class EmptyTreeTests(unittest.TestCase):
 
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
-        self.repo = Path(self.temporary.name) / "repo"
-        shutil.copytree(REPO, self.repo, ignore=IGNORED)
+        self.repo = copy_repository(Path(self.temporary.name))
         self.addCleanup(self.temporary.cleanup)
-        # Whatever content the working copy happens to hold, the check is run against a
-        # tree with none: each stream directory and each year of posts goes.
-        for tree in ("changelog", "news"):
-            for directory in (self.repo / tree).iterdir():
-                if directory.is_dir():
-                    shutil.rmtree(directory)
 
     def check(self) -> subprocess.CompletedProcess[str]:
         return subprocess.run(  # noqa: S603
@@ -275,9 +285,22 @@ class PublishTests(unittest.TestCase):
 
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
-        self.repo = Path(self.temporary.name) / "repo"
-        shutil.copytree(REPO, self.repo, ignore=IGNORED)
+        self.repo = copy_repository(Path(self.temporary.name))
         self.addCleanup(self.temporary.cleanup)
+        # Every stream `streams.json` declares gets a build: once anything is built, a
+        # declared stream with no directory is an error, and most of these tests build into
+        # one of them and then run the checker over the result.
+        self.write_build("2026.1008.0-g0v0", "g0v0")
+        self.write_build("2026.1015.0-robin", "robin")
+
+    def write_build(self, version: str, stream: str) -> None:
+        path = self.repo / "changelog" / stream / f"{version}.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps({"version": version, "entries": [{"type": "add", "title": "Already shipped"}]}),
+            encoding="utf-8",
+            newline="\n",
+        )
 
     def run_cli(self, *arguments: str) -> subprocess.CompletedProcess[str]:
         # `sys.executable` is the interpreter running this test, and the script path is the
@@ -361,7 +384,7 @@ class PublishTests(unittest.TestCase):
     def test_status_reads_the_tree(self):
         result = self.run_cli("status")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("2026.1009.0-g0v0", result.stdout)
+        self.assertIn("2026.1008.0-g0v0", result.stdout, "the build written into the copy is the one listed")
         self.assertIn("checks: 0 error(s)", result.stdout)
 
     def test_a_blank_draft_is_written_by_hand(self):
