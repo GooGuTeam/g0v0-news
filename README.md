@@ -25,25 +25,34 @@ news/
 changelog/
   streams.json
   g0v0/
-    2026.1009.0-g0v0.json
-    2026.1002.0-g0v0.json
+    2026.1101.0-g0v0.json
   robin/
-    2026.1015.0-robin.json
+  server/
+    2026.1101.0-server.json
+  web/
+    2026.1101.0-web.json
+assets/
+  changelog/
+    2026.1101.0-g0v0/
+      room-browser.png
 drafts/
-  2026.1029.0-g0v0.json
+  2026.1030.0-realtime.json
 ```
 
 `drafts/` is where `tools/newsctl.py` leaves a build that has not been published yet; it
-sits outside both content trees on purpose, and nothing under it is served.
+sits outside both content trees on purpose, and nothing under it is served. `assets/`
+holds the images the content links, and sits outside them for the same kind of reason —
+see [Images](#images).
 
 Posts may also sit flat under `news/`; the year directory is a convention taken from
 osu-wiki, not a requirement. The directory under `changelog/` is the stream name that
 appears in the URL, so `changelog/g0v0/` is served at `/api/v2/changelog/g0v0/...`.
 
-Two streams, matching the two builds on the download page: `g0v0` is the release build,
-`robin` the test one. A build carries its stream as a version suffix — `-g0v0`,
-`-robin` — which is the same suffix the client hides when it shows the version, so the
-stream a file sits in and the version it holds agree.
+A stream per thing that is released: `g0v0` is the client release build and `robin` the
+test one, while `server` and `web` carry the notes of the backend and of the website. A
+build carries its stream as a version suffix — `-g0v0`, `-robin`, `-server`, `-web` —
+which is the same suffix the client hides when it shows the version, so the stream a
+file sits in and the version it holds agree.
 
 The file name of a post — minus `.md` — is its slug, which is what
 `/api/v2/news/{news}` accepts. `changelog/streams.json` only describes the streams it
@@ -61,7 +70,7 @@ updated: 2026-10-28 09:30:00 +0000
 series: game_updates
 ---
 
-![banner](/wiki/shared/news/2026-10-28-autumn-update/banner.jpg)
+![banner](/content/images/news/20261028-autumn-update/banner.jpg)
 
 Opening paragraph, which becomes the preview in the listing.
 ```
@@ -80,19 +89,20 @@ inline lists such as `tags: [a, b]`. Nested blocks are ignored, so keep it flat.
 number is read as an integer, which is what lets `id: 20261028080000` be a number rather
 than text.
 
-The first image of the body becomes the listing banner. A path starting with `/wiki/`
-is served by the server's wiki image endpoint — the same one the wiki articles use —
-so shared banners belong under `ppy/osu-wiki`'s `wiki/shared/news/`. An absolute
-`http(s)://` URL is passed through untouched, and any other relative path is resolved
-against this repository.
+The first image of the body becomes the listing banner. `/content/images/...` is served
+by the server out of `assets/`, which is where a banner of this repository's own belongs
+(see [Images](#images)); a path starting with `/wiki/` is served by the wiki image
+endpoint — the same one the wiki articles use — so shared banners live under
+`ppy/osu-wiki`'s `wiki/shared/news/`. An absolute `http(s)://` URL is passed through
+untouched, and any other relative path is resolved against this repository.
 
 ## A changelog build
 
 ```json
 {
   "$schema": "../build.schema.json",
-  "version": "2026.1009.0-g0v0",
-  "created_at": "2026-10-09 12:00:00 +0000",
+  "version": "2026.1101.0-g0v0",
+  "created_at": "2026-11-01 12:00:00 +0000",
   "entries": [
     {
       "type": "add",
@@ -137,8 +147,10 @@ is refused rather than believed, since the two could disagree.
 ```json
 {
   "streams": [
-    { "name": "g0v0", "id": 1, "display_name": "g0v0", "is_featured": true },
-    { "name": "robin", "id": 2, "display_name": "robin" }
+    { "name": "g0v0", "id": 1, "display_name": "g0v0!", "is_featured": true },
+    { "name": "robin", "id": 2, "display_name": "Robin" },
+    { "name": "server", "id": 3, "display_name": "Server" },
+    { "name": "web", "id": 4, "display_name": "Website" }
   ]
 }
 ```
@@ -155,6 +167,47 @@ of the stream's builds, the same way osu-web does, so a number typed into this f
 would only be a copy that goes stale as soon as a new build is added. `users` therefore
 belongs to the build files (see above), and `user_count` only ever appears in the API
 response. The schema rejects the key if it is added anyway.
+
+## Images
+
+A screenshot that belongs to a release note is committed here, under `assets/`, and
+linked through the server:
+
+```markdown
+![The new room browser](/content/images/changelog/2026.1101.0-g0v0/room-browser.png)
+```
+
+The path after `/content/images/` is relative to `assets/`, so that line is served by
+`GET /content/images/changelog/2026.1101.0-g0v0/room-browser.png`, which reads
+`assets/changelog/2026.1101.0-g0v0/room-browser.png` from this repository — no other
+place is involved, and the file moves with the build it belongs to.
+
+`assets/` sits at the root rather than inside `changelog/` or `news/` because both of
+those trees are read as content: every directory under `changelog/` is an update stream,
+and a file there that is not a build is reported. A directory of its own is read by
+neither.
+
+Three things about the link:
+
+- it has to be absolute on the server, starting with `/content/images/`. A changelog
+  message carries no base URL, so a relative `assets/foo.png` has nothing to resolve
+  against and the client ends up asking the server for `/assets/foo.png`, which serves
+  nothing;
+- an `https://` link is passed through as written, and the client then loads the image
+  from that host. That is the way to link an image this repository does not host, and
+  the wrong way to ship a screenshot with a release note: the raw host is slow from some
+  networks, and nothing here would cache it;
+- leave `?`, `&` and `#` out of the file name. The client pastes the URL into a query
+  string without encoding it, so those characters cut the URL short.
+
+The same link works as the banner of a post, which is its first image — the server turns
+it into an absolute URL for the listing card, because that one is loaded directly rather
+than through the media endpoint.
+
+Images are answered with a week of `Cache-Control` and kept in the server's Redis for
+half an hour, so replacing one under the same name takes a while to show up: give the
+file a new name when the picture changes. `ENABLE_CONTENT_IMAGES=false` on the server
+turns the route off, and every such link then answers 404.
 
 ## Checking before pushing
 
@@ -176,17 +229,18 @@ Beside the schema rules, `validate.py` checks what a schema cannot express:
 - identifiers are unique across builds, and across posts;
 - a build file is named after the version it holds;
 - a build suffixed with a stream name sits in that stream's directory;
-- a stream declared in `streams.json` has a directory, and a directory has at least one
-  build — a stream without one is dropped from the changelog entirely;
+- a stream may be declared before its first build — the run says so as a warning, and
+  the stream is not served until there is one, since the server lists a stream only for
+  the builds it has;
 - a post's slug starts with its own publication date.
 
 Errors exit with `1`; warnings do not fail the run. Both commands run on every push and
 pull request, in `.github/workflows/validate.yml`.
 
-A tree with nothing in it yet passes, with a warning per stream that has no build and one
-for a `news/` with no post. Those rules describe what is built, and an empty tree has no
-build to hold them against; the first one makes them binding again, and a declared stream
-whose directory is missing is an error from then on.
+A stream with no build yet passes, with a warning naming it; so does a `news/` with no
+post. Those rules describe what is built, and a stream without a build has nothing to
+describe. The warning clears itself on the first build — and until then the directory may
+not even exist, which is the usual case: git does not store an empty one.
 
 `uv.lock` is committed, so the version `jsonschema` resolves to is the one the schema
 checks were written against. It records whichever package index resolved it; if your
