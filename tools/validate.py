@@ -1,19 +1,20 @@
 """Check this repository before it is pushed.
 
 The server reads the same content, so this script is where a mistake is supposed to be
-caught: a field that is missing, a version that does not match its file name, a stream
-declared but never built. It reads the schemas next to the files it checks, so adding a
-field means editing the schema rather than this script.
+caught: a field that is missing, a version that does not match its file name, a suffix
+that disagrees with the directory. It reads the schemas next to the files it checks, so
+adding a field means editing the schema rather than this script.
 
     uv run python tools/validate.py
 
 Exits with 1 when anything is wrong, so a CI job can run it as is. The rules below that
 a schema cannot express -- identifiers being unique, a version matching its file name, a
-stream having a directory -- are the reason this is a script rather than a linter.
+suffix matching its directory -- are the reason this is a script rather than a linter.
 
-A repository nobody has published to yet passes, with warnings. The rules about streams
-describe what is built, and an empty tree has no build for them to disagree with: a red
-build there would be a rule nobody can satisfy until after their first release.
+A stream that has been announced but not released yet passes, with a warning. The rules
+about a stream describe what is built, and a stream with no build has nothing for them to
+describe: a red build there would be a rule nobody can clear until they publish, which is
+not what a check is for.
 
 The parsers are not here: `formats.py` reads the same front matter and the same
 timestamps for the tools that write them, and one reader for both directions is what
@@ -105,7 +106,9 @@ def check_changelog(report: Report) -> None:
 
         builds = sorted(directory.glob("*.json"))
         if not builds:
-            report.error(relative(directory), "holds no build, so the stream is dropped from the changelog")
+            # A stream directory made ahead of its first release. The server lists a
+            # stream only for the builds it has, so this one is simply not served yet.
+            report.warning(relative(directory), "holds no build yet, so it is not served")
 
         for path in sorted(directory.iterdir()):
             if path.is_file() and path.suffix != ".json":
@@ -114,18 +117,16 @@ def check_changelog(report: Report) -> None:
         for path in builds:
             check_build(path, report, build_schema, identifiers, name)
 
-    # A stream declared before its first build is where every stream starts. The
-    # declaration is held against the directories only once there is a build to hold it
-    # against: before that, `changelog/g0v0/` missing means "nothing shipped yet", which
-    # is not something a contributor can fix, and a typo in a name has nothing to be a
-    # typo of.
-    empty = not any(directory.glob("*.json") for directory in directories.values())
+    # A stream declared before its first build usually has no directory at all: git does
+    # not store an empty one, so "announced, not released yet" and "the directory was
+    # never made" are the same tree, and neither is something a contributor can fix
+    # before they have a build to put in it. Both read as the stream not being served,
+    # which is why this is a warning rather than an error.
     for name in sorted(set(declared) - set(directories)):
-        reason = f"declares `{name}`, but changelog/{name}/ does not exist"
-        if empty:
-            report.warning("changelog/streams.json", f"{reason} yet")
-        else:
-            report.error("changelog/streams.json", reason)
+        report.warning(
+            "changelog/streams.json",
+            f"declares `{name}`, but changelog/{name}/ does not exist, so it is not served yet",
+        )
 
 
 def check_build(
