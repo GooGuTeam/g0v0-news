@@ -352,6 +352,19 @@ class StandInTests(unittest.TestCase):
     def test_the_raw_route_answers_the_same_bytes(self):
         with urlopen(f"{self.base}/local/g0v0-news/HEAD/README.md") as response:  # noqa: S310
             self.assertEqual(response.read(), (self.repo / "README.md").read_bytes())
+            self.assertEqual(response.headers.get_content_type(), "text/plain")
+
+    def test_an_image_is_answered_with_its_own_type(self):
+        # The server reads this header to tell an asset from the Markdown a repository
+        # answers for a path that only looks like an image, so the stand-in has to send it:
+        # typed `text/plain`, a picture linked from a build is refused and nothing shows.
+        picture = self.repo / "assets" / "stand-in-pixel.png"
+        picture.parent.mkdir(parents=True, exist_ok=True)
+        picture.write_bytes(b"\x89PNG\r\n\x1a\nstand-in")
+
+        with urlopen(f"{self.base}/local/g0v0-news/HEAD/assets/stand-in-pixel.png") as response:  # noqa: S310
+            self.assertEqual(response.headers.get_content_type(), "image/png")
+            self.assertEqual(response.read(), picture.read_bytes())
 
     def test_a_path_outside_the_checkout_is_not_found(self):
         self.assertEqual(self.get("/repos/local/g0v0-news/contents/../../pyproject.toml")[0], 404)

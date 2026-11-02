@@ -36,6 +36,7 @@ from dataclasses import dataclass
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import mimetypes
 from pathlib import Path
 import re
 import sys
@@ -57,6 +58,21 @@ LOCAL = frozenset({".git", ".venv", "__pycache__", ".ruff_cache", ".idea", ".vsc
 INLINE = 1024 * 1024
 
 _CONTENTS = re.compile(r"^/repos/[^/]+/[^/]+/contents(?:/(?P<name>.*))?$")
+
+
+def media_type_of(path: str) -> str:
+    """The type a raw answer carries, which is what a consumer decides on.
+
+    A text file is answered as text whatever it is called, which is how the raw host
+    serves a document. An image is answered with its own type, because the server reads
+    this header to tell a screenshot from the Markdown a repository answers for a path
+    that only looks like one: with every asset typed `text/plain`, a picture linked from
+    a build is refused and the client shows nothing.
+    """
+    guessed, _ = mimetypes.guess_type(path)
+    if guessed is None or guessed.startswith("text/"):
+        return "text/plain; charset=utf-8"
+    return guessed
 
 
 # -- the checkout, as the contents API describes it -----------------------------------
@@ -482,7 +498,7 @@ class Handler(BaseHTTPRequestHandler):
         data = self.api.snapshot().raw("/".join(parts[3:]))
         if data is None:
             return self._not_found(path)
-        self._body(data, "text/plain; charset=utf-8")
+        self._body(data, media_type_of(path))
 
     def _index(self) -> dict[str, Any]:
         """What this server can answer, and the variables that point a reader at it."""
