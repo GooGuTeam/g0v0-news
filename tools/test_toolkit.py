@@ -521,7 +521,7 @@ class RepositoryTests(unittest.TestCase):
 
 
 class EmptyTreeTests(unittest.TestCase):
-    """A repository nobody has published to yet, which is the state this one is in."""
+    """A copy with every stream directory taken out, which is what an unreleased stream is."""
 
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
@@ -542,12 +542,16 @@ class EmptyTreeTests(unittest.TestCase):
         checked = self.check()
         self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
         self.assertIn("0 error(s)", checked.stdout)
-        self.assertIn("declares `g0v0`, but changelog/g0v0/ does not exist yet", checked.stdout)
+        self.assertIn(
+            "declares `g0v0`, but changelog/g0v0/ does not exist, so it is not served yet",
+            checked.stdout,
+        )
         self.assertIn("holds no post", checked.stdout)
 
-    def test_a_declared_stream_is_required_once_anything_is_built(self):
-        # One build in one stream is enough for the declaration to be held to account: at
-        # that point a missing directory is a mistake rather than an empty start.
+    def test_a_stream_with_no_release_stays_a_warning(self):
+        # A stream is declared before its first build ships, so a build in another stream
+        # does not turn the missing directory into a mistake: there is still nothing to
+        # serve, which is what the warning says.
         build = self.repo / "changelog" / "robin" / "2026.1015.0-robin.json"
         build.parent.mkdir()
         build.write_text(
@@ -557,9 +561,18 @@ class EmptyTreeTests(unittest.TestCase):
         )
 
         checked = self.check()
-        self.assertEqual(checked.returncode, 1, checked.stdout + checked.stderr)
+        self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
         self.assertIn("declares `g0v0`, but changelog/g0v0/ does not exist", checked.stdout)
-        self.assertNotIn("does not exist yet", checked.stdout)
+
+    def test_a_directory_made_ahead_of_its_release_passes(self):
+        # The other shape of the same state: the directory exists and holds nothing. Git
+        # will not carry an empty directory, so this is what a person sees locally.
+        (self.repo / "changelog" / "g0v0").mkdir()
+
+        checked = self.check()
+        self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+        self.assertIn("changelog/g0v0: holds no build yet, so it is not served", checked.stdout)
+        self.assertNotIn("declares `g0v0`", checked.stdout)
 
 
 class PublishTests(unittest.TestCase):
@@ -569,10 +582,10 @@ class PublishTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.repo = copy_repository(Path(self.temporary.name))
         self.addCleanup(self.temporary.cleanup)
-        # Once anything is built, a declared stream with no directory is an error, and most
-        # of these tests build into one stream and then run the checker over the result. So
+        # These tests build into one stream and then run the checker over the result, so
         # the copy declares exactly the streams it builds, rather than whatever the checkout
-        # this was copied from happens to declare today.
+        # this was copied from happens to declare today: a warning about a stream the test
+        # never mentioned would be noise in an assertion about publishing.
         self.write_streams("g0v0", "robin")
         self.write_build("2026.1008.0-g0v0", "g0v0")
         self.write_build("2026.1015.0-robin", "robin")
