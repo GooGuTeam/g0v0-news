@@ -22,8 +22,8 @@ jobs:
       - name: Check JSON schemas
         run: uv run python tools/validate.py --self-test
 
-      # A tree with nothing in it yet passes here, with a warning per stream that has no
-      # build: those rules describe what is built, and an empty tree has nothing to
-      # disagree with. The first build makes them binding again.
+      # A stream that has been declared but not released yet passes here, with a warning:
+      # the rules about a stream describe what is built, and a stream with no build has
+      # nothing for them to describe. The warning clears itself on the first build.
       - name: Check content
         run: uv run python tools/validate.py

@@ -1,0 +1,160 @@
+{
+  "$schema": "../build.schema.json",
+  "version": "2026.1101.0-g0v0",
+  "id": 202611010,
+  "entries": [
+    {
+      "type": "add",
+      "category": "Interop",
+      "title": "Restore upstream standard pp/sr calculator and implement mod-specific calculator",
+      "message": "It makes projects depends on `g0v0.osu.Game` allow to choose use upstream algorithm or g0v0! algorithm.",
+      "url": "https://github.com/GooGuTeam/g0v0/pull/14",
+      "repository": "GooGuTeam/g0v0",
+      "github_pull_request_id": 14,
+      "major": true,
+      "github_user": {
+        "display_name": "MingxuanGame",
+        "github_username": "MingxuanGame",
+        "github_url": "https://github.com/MingxuanGame"
+      }
+    },
+    {
+      "type": "fix",
+      "category": "Framework",
+      "title": "Fix Vulkan texture upload ordering",
+      "repository": "GooGuTeam/g0v0-framework",
+      "major": true,
+      "github_user": {
+        "display_name": "telecomadm1145",
+        "github_username": "telecomadm1145",
+        "github_url": "https://github.com/telecomadm1145"
+      }
+    },
+    {
+      "type": "fix",
+      "category": "Framework",
+      "title": "Native imaging, batched rendering and recording improvements",
+      "repository": "GooGuTeam/g0v0-framework",
+      "github_user": {
+        "display_name": "telecomadm1145",
+        "github_username": "telecomadm1145",
+        "github_url": "https://github.com/telecomadm1145"
+      }
+    },
+    {
+      "type": "add",
+      "category": "UI",
+      "title": "Flexible top toolbar icon buttons",
+      "message": "The icon buttons in the top bar are reordered and hidden from the User interface section of the settings, in one dialog that lists every button, and the ones that no longer fit move aside on their own when the ruleset selector needs the room.\n\n\nThe toolbar with auto shrink on VS off:\n\n![](/content/images/changelog/2026.1101.0-g0v0/auto-shrink-on.jpg)\n![](/content/images/changelog/2026.1101.0-g0v0/auto-shrink-off.jpg)\n\nThe icon management overlay:\n\n![](/content/images/changelog/2026.1101.0-g0v0/icon-management-overlay.jpg)",
+      "url": "https://github.com/GooGuTeam/g0v0/pull/9",
+      "repository": "GooGuTeam/g0v0",
+      "github_pull_request_id": 9,
+      "major": true,
+      "github_user": {
+        "display_name": "CloneWith",
+        "github_username": "CloneWith",
+        "github_url": "https://github.com/CloneWith"
+      }
+    },
+    {
+      "type": "add",
+      "category": "UI",
+      "title": "Add image preview overlay",
+      "message": "This supports zooming in & out, copying the link and saving the image locally.\n\nHave a try by clicking on images in the wiki overlay!\n\n![](/content/images/changelog/2026.1101.0-g0v0/image-preview.jpg)",
+      "url": "https://github.com/GooGuTeam/g0v0/pull/10",
+      "repository": "GooGuTeam/g0v0",
+      "github_pull_request_id": 10,
+      "major": true,
+      "github_user": {
+        "display_name": "CloneWith",
+        "github_username": "CloneWith",
+        "github_url": "https://github.com/CloneWith"
+      }
+    },
+    {
+      "type": "fix",
+      "category": "UI",
+      "title": "Fix skin editor components keep crashing",
+      "message": "This is related to the error boundary added recently. The dependency injection here is exotic and unexpected.",
+      "repository": "GooGuTeam/g0v0",
+      "github_user": {
+        "display_name": "CloneWith",
+        "github_username": "CloneWith",
+        "github_url": "https://github.com/CloneWith"
+      }
+    },
+    {
+      "type": "add",
+      "category": "Wiki",
+      "title": "Add language switcher to the wiki overlay",
+      "message": "A revamped and improved version of [ppy/osu#38174](https://github.com/ppy/osu/pull/38174).\n\n![](/content/images/changelog/2026.1101.0-g0v0/wiki-language-dropdown.jpg)",
+      "url": "https://github.com/GooGuTeam/g0v0/pull/13",
+      "repository": "GooGuTeam/g0v0",
+      "github_pull_request_id": 13,
+      "major": true,
+      "github_user": {
+        "display_name": "CloneWith",
+        "github_username": "CloneWith",
+        "github_url": "https://github.com/CloneWith"
+      }
+    },
+    {
+      "type": "fix",
+      "category": "Wiki",
+      "title": "Support loading Markdown images from custom endpoints",
+      "message": "This is used to be hardcoded, which prevents wiki images from loading.",
+      "repository": "GooGuTeam/g0v0",
+      "github_user": {
+        "display_name": "CloneWith",
+        "github_username": "CloneWith",
+        "github_url": "https://github.com/CloneWith"
+      }
+    },
+    {
+      "type": "fix",
+      "category": "Wiki",
+      "title": "Use monospace fonts for Markdown code blocks and inline code",
+      "repository": "GooGuTeam/g0v0",
+      "github_user": {
+        "display_name": "CloneWith",
+        "github_username": "CloneWith",
+        "github_url": "https://github.com/CloneWith"
+      }
+    },
+    {
+      "type": "fix",
+      "category": "Online",
+      "title": "Change default endpoint to the new domain",
+      "repository": "GooGuTeam/g0v0",
+      "major": true,
+      "github_user": {
+        "display_name": "MingxuanGame",
+        "github_username": "MingxuanGame",
+        "github_url": "https://github.com/MingxuanGame"
+      }
+    },
+    {
+      "type": "add",
+      "category": "Changelog",
+      "title": "Rewrite release stream templates",
+      "message": "New streams are added for server and web-side changes. Their colours are also adjusted.",
+      "repository": "GooGuTeam/g0v0",
+      "github_user": {
+        "display_name": "CloneWith",
+        "github_username": "CloneWith",
+        "github_url": "https://github.com/CloneWith"
+      }
+    },
+    {
+      "type": "misc",
+      "category": "Changelog",
+      "title": "Rewrite promption banner at the bottom",
+      "repository": "GooGuTeam/g0v0",
+      "github_user": {
+        "display_name": "CloneWith",
+        "github_username": "CloneWith",
+        "github_url": "https://github.com/CloneWith"
+      }
+    }
+  ]
+}

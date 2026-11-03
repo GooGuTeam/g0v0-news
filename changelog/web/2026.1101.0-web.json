@@ -1,0 +1,71 @@
+{
+  "$schema": "../build.schema.json",
+  "version": "2026.1101.0-web",
+  "id": 202611012,
+  "entries": [
+    {
+      "type": "fix",
+      "category": "Website",
+      "title": "Move the frontend domain to `osu.g0v0.top`",
+      "message": "Access to old domains will be redirected there.",
+      "url": "https://github.com/GooGuJiang/gusou-lazer-web/pull/32",
+      "repository": "GooGuJiang/gusou-lazer-web",
+      "github_pull_request_id": 32,
+      "major": true,
+      "github_user": {
+        "display_name": "GooGuJiang",
+        "github_username": "GooGuJiang",
+        "github_url": "https://github.com/GooGuJiang"
+      }
+    },
+    {
+      "type": "fix",
+      "category": "Website",
+      "title": "Migrate frontend to Next.js",
+      "url": "https://github.com/GooGuJiang/gusou-lazer-web/pull/31",
+      "repository": "GooGuJiang/gusou-lazer-web",
+      "github_pull_request_id": 31,
+      "major": true,
+      "github_user": {
+        "display_name": "GooGuJiang",
+        "github_username": "GooGuJiang",
+        "github_url": "https://github.com/GooGuJiang"
+      }
+    },
+    {
+      "type": "add",
+      "category": "Website",
+      "title": "Add support for stable client verification callbacks",
+      "repository": "GooGuJiang/gusou-lazer-web",
+      "major": true,
+      "github_user": {
+        "display_name": "MingxuanGame",
+        "github_username": "MingxuanGame",
+        "github_url": "https://github.com/MingxuanGame"
+      }
+    },
+    {
+      "type": "add",
+      "category": "Website",
+      "title": "Add options for platforms and update streams in the download page",
+      "repository": "GooGuJiang/gusou-lazer-web",
+      "github_user": {
+        "display_name": "MingxuanGame",
+        "github_username": "MingxuanGame",
+        "github_url": "https://github.com/MingxuanGame"
+      }
+    },
+    {
+      "type": "add",
+      "category": "Documentation",
+      "title": "Add `g0v0.Server.Realtime` V2 configuration page",
+      "repository": "GooGuTeam/g0v0-docs",
+      "major": true,
+      "github_user": {
+        "display_name": "MingxuanGame",
+        "github_username": "MingxuanGame",
+        "github_url": "https://github.com/MingxuanGame"
+      }
+    }
+  ]
+}

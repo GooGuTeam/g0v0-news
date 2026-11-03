@@ -1,0 +1,92 @@
+{
+  "$schema": "../build.schema.json",
+  "version": "2026.1101.0-server",
+  "id": 202611011,
+  "entries": [
+    {
+      "type": "add",
+      "category": "Realtime",
+      "title": "Implement BanchoBot tournament management (`!mp`) commands",
+      "url": "https://github.com/GooGuTeam/g0v0.Server.Realtime/pull/1",
+      "repository": "GooGuTeam/g0v0.Server.Realtime",
+      "github_pull_request_id": 1,
+      "major": true,
+      "github_user": {
+        "display_name": "CloneWith",
+        "github_username": "CloneWith",
+        "github_url": "https://github.com/CloneWith"
+      }
+    },
+    {
+      "type": "add",
+      "category": "Backend",
+      "title": "Add `osu-wiki`-compatible wiki service",
+      "url": "https://github.com/GooGuTeam/g0v0-server/pull/210",
+      "repository": "GooGuTeam/g0v0-server",
+      "github_pull_request_id": 210,
+      "major": true,
+      "github_user": {
+        "display_name": "CloneWith",
+        "github_username": "CloneWith",
+        "github_url": "https://github.com/CloneWith"
+      }
+    },
+    {
+      "type": "add",
+      "category": "Backend",
+      "title": "Add changelog and news services",
+      "message": "The content of them are stored in [`g0v0-news`](https://github.com/GooGuTeam/g0v0-news).",
+      "url": "https://github.com/GooGuTeam/g0v0-server/pull/217",
+      "repository": "GooGuTeam/g0v0-server",
+      "github_pull_request_id": 217,
+      "major": true,
+      "github_user": {
+        "display_name": "CloneWith",
+        "github_username": "CloneWith",
+        "github_url": "https://github.com/CloneWith"
+      }
+    },
+    {
+      "type": "add",
+      "category": "Backend",
+      "title": "Add advanced screenshot management support",
+      "message": "Besides in-game screenshot uploading, now users are also able to view their own screenshots and delete them.\n\nLong unused screenshots are removed on schedule.",
+      "url": "https://github.com/GooGuTeam/g0v0-server/pull/212",
+      "repository": "GooGuTeam/g0v0-server",
+      "github_pull_request_id": 212,
+      "major": true,
+      "github_user": {
+        "display_name": "CloneWith",
+        "github_username": "CloneWith",
+        "github_url": "https://github.com/CloneWith"
+      }
+    },
+    {
+      "type": "fix",
+      "category": "Backend",
+      "title": "Migrate BanchoBot to user ID 3",
+      "message": "To keep the same with upstream.",
+      "url": "https://github.com/GooGuTeam/g0v0-server/pull/215",
+      "repository": "GooGuTeam/g0v0-server",
+      "github_pull_request_id": 215,
+      "github_user": {
+        "display_name": "MingxuanGame",
+        "github_username": "MingxuanGame",
+        "github_url": "https://github.com/MingxuanGame"
+      }
+    },
+    {
+      "type": "fix",
+      "category": "Backend",
+      "title": "Harden session verification and stable device trust",
+      "url": "https://github.com/GooGuTeam/g0v0-server/pull/216",
+      "repository": "GooGuTeam/g0v0-server",
+      "github_pull_request_id": 216,
+      "github_user": {
+        "display_name": "MingxuanGame",
+        "github_username": "MingxuanGame",
+        "github_url": "https://github.com/MingxuanGame"
+      }
+    }
+  ]
+}
